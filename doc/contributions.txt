@@ -1,0 +1,42 @@
+SER 502 project
+Name: LingoScript - Team 22
+
+Milestone 1
+------------------------------------------------------------------
+
+Devanshu Desai:
+-> Created GitHub repo for initiating the project.
+-> Worked on deciding the Language Grammar for the project.
+
+Aditya Gupta:
+-> Worked on documentation for the Milestone-1.
+-> Analyzed the syntax for the language designed.
+
+Nimit Pragnesh Patel:
+-> Finalized all the semantics of the language.
+-> Researched on techniques and tools used for the project.
+
+Neel Nirajkumar Shah:
+
+-> Worked in documentation and language selection.
+-> Analyzed various tools for performing lexical analysis. 
+
+
+Contribution Plan for Milestone-2
+------------------------------------------------------------------
+
+Devanshu Desai: 
+-> Work on the implementation of the Parser
+-> Work on adding documentation(ppt, Readme).
+
+Aditya Gupta:
+-> Start implementation on lexical analyzer.
+-> Work on the sample program for the project.
+
+Nimit Pragnesh Patel:
+-> Work on implementation of Evaluater.
+-> Contribute in documentation(ppt).
+
+Neel Nirajkumar Shah:
+-> Work on Integration and testing of the code.
+-> Work on refining grammar.
