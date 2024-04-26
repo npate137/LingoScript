@@ -1,6 +1,6 @@
 :- table main_block/2.
 
-pixel(Lexername) :-
+ls(Lexername) :-
     process_create(path('python'), [Lexername], [stdout(pipe(In))]),
     read_string(In, _, X),
     write(X),
@@ -17,10 +17,10 @@ pixel(Lexername) :-
 program(main(CodeBlock)) --> [main], block(CodeBlock).
 
 program_eval(Prog, EnvIn, EnvOut) :-
-    program_eval(Prog, EnvIn, EnvOut),
+    program_evaluation(Prog, EnvIn, EnvOut),
     write(EnvOut).
 
-program_eval(main(CodeBlock), EnvIn, EnvOut) :-
+program_evaluation(main(CodeBlock), EnvIn, EnvOut) :-
     block_eval(CodeBlock, EnvIn, EnvOut).
 
 
@@ -87,14 +87,6 @@ eval_extract(Val, EnvIn, EnvOut, N) :-
     extract_value(Val, EnvIn, EnvTemp, N),
     (var(EnvTemp) -> EnvOut = EnvIn; EnvOut = EnvTemp).
 
-% is_const_declared(variable(Iden), datatype(Datatype), Val, EnvIn, [(Iden, const, Datatype, N) | EnvIn]) :-
-%     extract_value(Val, EnvIn, _, N),
-%     \+ member((Iden, _, _, _), EnvIn),
-%     ( valid_datatype_value(Datatype, N)
-%     -> true
-%     ;  format('Error: invalid value "~w" for datatype "~w"~n', [N, Datatype]), fail
-%     ).
-
 variable_decl(variable_decl(var, Dtype, Iden, ;)) --> [var], variable_datatype(Dtype), variable(Iden), [;].
 variable_decl(variable_decl(var, Dtype, Iden, =, Expr, ;)) --> [var], variable_datatype(Dtype), variable(Iden), [=], simple_expr(Expr), [;].
 variable_decl(variable_decl(var, Dtype, Iden, =, Expr, ;)) --> [var], variable_datatype(Dtype), variable(Iden), [=], boolCondition(Expr), [;].
@@ -111,13 +103,6 @@ is_variable_declared(variable(Iden), datatype(Datatype), Val, EnvIn, [(Iden, var
     -> ( valid_datatype_value(Datatype, N)
     -> true ;  format('Error: invalid value "~w" for datatype "~w"~n', [N, Datatype]), fail)
     ; throw(error(variable_already_declared, [Iden]))).
-
-% is_variable_declared(variable(Iden), datatype(Datatype), Val, EnvIn, [(Iden, var, Datatype, N) | EnvOut]) :-
-%     extract_value(Val, EnvIn, EnvOut, N),
-%     (\+ member((Iden, _, _, _), EnvOut)
-%     -> ( valid_datatype_value(Datatype, N)
-%     -> true ;  format('Error: invalid value "~w" for datatype "~w"~n', [N, Datatype]), fail)
-%     ; throw(error(variable_already_declared, [Iden]))).
 
 variable_datatype(datatype(int)) --> [int].
 variable_datatype(datatype(bool)) --> [bool].
@@ -336,45 +321,45 @@ cmd_eval(if(if, Bool, _, Cmd1), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     cmd_eval(Cmd1, EnvTemp, EnvOut).
 
-cmd_eval(if_else(if, Bool, Cmd, else, _), EnvIn, EnvOut) :- 
+cmd_eval(if_else(if, Bool, Cmd, else, _), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_eval(Cmd, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvOut).
 
-cmd_eval(if_else(if, Bool, _, else, Cmd1),EnvIn,EnvOut) :- 
+cmd_eval(if_else(if, Bool, _, else, Cmd1),EnvIn,EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     cmd_eval(Cmd1, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvOut).
 
-cmd_eval(if_else(if, Bool, Cmd, else, _, Cmd1), EnvIn, EnvOut) :- 
+cmd_eval(if_else(if, Bool, Cmd, else, _, Cmd1), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_eval(Cmd, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvTemp3),
     cmd_eval(Cmd1, EnvTemp3, EnvOut).
 
-cmd_eval(if_else(if, Bool, _, else, Cmd1, Cmd2),EnvIn,EnvOut) :- 
+cmd_eval(if_else(if, Bool, _, else, Cmd1, Cmd2),EnvIn,EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     cmd_eval(Cmd1, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvTemp3),
     cmd_eval(Cmd2, EnvTemp3, EnvOut).
 
-cmd_eval(if_else_if(if, Bool, Cmd, _), EnvIn, EnvOut) :- 
+cmd_eval(if_else_if(if, Bool, Cmd, _), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_eval(Cmd, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvOut).
 
-cmd_eval(if_else_if(if, Bool, _, Rest), EnvIn, EnvOut) :- 
+cmd_eval(if_else_if(if, Bool, _, Rest), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     else_if_eval(Rest, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvOut).
 
-cmd_eval(if_else_if(if, Bool, Cmd, _, Cmd), EnvIn, EnvOut) :- 
+cmd_eval(if_else_if(if, Bool, Cmd, _, Cmd), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_eval(Cmd, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvTemp3),
     cmd_eval(Cmd, EnvTemp3, EnvOut).
 
-cmd_eval(if_else_if(if, Bool, _, Rest, Cmd), EnvIn, EnvOut) :- 
+cmd_eval(if_else_if(if, Bool, _, Rest, Cmd), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     else_if_eval(Rest, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvTemp3),
@@ -522,26 +507,26 @@ while_eval(Bool, Cmd, EnvIn, EnvOut) :-
 while_eval(B, _, EnvIn, EnvOut) :-
     eval_bool_env(B, EnvIn, EnvOut, false).
 
-else_if_eval(elif(elif, Bool, Cmd), EnvIn, EnvOut) :- 
+else_if_eval(elif(elif, Bool, Cmd), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_eval(Cmd, EnvTemp, EnvOut).
 
-else_if_eval(elif(elif, Bool, _), EnvIn, EnvOut) :- 
+else_if_eval(elif(elif, Bool, _), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvOut, false).
 
-else_if_eval(elif(elif, Bool, Cmd, _), EnvIn, EnvOut) :- 
+else_if_eval(elif(elif, Bool, Cmd, _), EnvIn, EnvOut) :-
     eval_bool_env(Bool,EnvIn,EnvTemp,true),
     cmd_eval(Cmd, EnvTemp, EnvOut).
 
-else_if_eval(elif(elif, Bool, _, Rest), EnvIn, EnvOut) :- 
+else_if_eval(elif(elif, Bool, _, Rest), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp,false),
     else_if_eval(Rest, EnvTemp, EnvOut).
 
-else_if_eval(elif(elif, Bool, Cmd, else, _),EnvIn,EnvOut) :- 
+else_if_eval(elif(elif, Bool, Cmd, else, _),EnvIn,EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp,true),
     cmd_eval(Cmd, EnvTemp, EnvOut).
 
-else_if_eval(elif(elif, Bool, _, else, Cmd1), EnvIn, EnvOut) :- 
+else_if_eval(elif(elif, Bool, _, else, Cmd1), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp,false),
     cmd_eval(Cmd1, EnvTemp, EnvOut).
 % for_loop_range_eval(Iden, Current, To, Jump, Cmd, EnvIn, EnvOut) :-
@@ -802,45 +787,45 @@ cmd_ternary_eval(if(if, Bool, _, Cmd1), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     cmd_ternary_eval(Cmd1, EnvTemp, EnvOut).
 
-cmd_ternary_eval(if_else(if, Bool, Cmd, else, _), EnvIn, EnvOut) :- 
+cmd_ternary_eval(if_else(if, Bool, Cmd, else, _), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvOut).
 
-cmd_ternary_eval(if_else(if, Bool, _, else, Cmd1),EnvIn,EnvOut) :- 
+cmd_ternary_eval(if_else(if, Bool, _, else, Cmd1),EnvIn,EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     cmd_ternary_eval(Cmd1, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvOut).
 
-cmd_ternary_eval(if_else(if, Bool, Cmd, else, _, Cmd1), EnvIn, EnvOut) :- 
+cmd_ternary_eval(if_else(if, Bool, Cmd, else, _, Cmd1), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvTemp3),
     cmd_ternary_eval(Cmd1, EnvTemp3, EnvOut).
 
-cmd_ternary_eval(if_else(if, Bool, _, else, Cmd1, Cmd2),EnvIn,EnvOut) :- 
+cmd_ternary_eval(if_else(if, Bool, _, else, Cmd1, Cmd2),EnvIn,EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     cmd_ternary_eval(Cmd1, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvTemp3),
     cmd_ternary_eval(Cmd2, EnvTemp3, EnvOut).
 
-cmd_ternary_eval(if_else_if(if, Bool, Cmd, _), EnvIn, EnvOut) :- 
+cmd_ternary_eval(if_else_if(if, Bool, Cmd, _), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvOut).
 
-cmd_ternary_eval(if_else_if(if, Bool, _, Rest), EnvIn, EnvOut) :- 
+cmd_ternary_eval(if_else_if(if, Bool, _, Rest), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     else_if_eval(Rest, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvOut).
 
-cmd_ternary_eval(if_else_if(if, Bool, Cmd, _, Cmd), EnvIn, EnvOut) :- 
+cmd_ternary_eval(if_else_if(if, Bool, Cmd, _, Cmd), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, true),
     cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvTemp3),
     cmd_ternary_eval(Cmd, EnvTemp3, EnvOut).
 
-cmd_ternary_eval(if_else_if(if, Bool, _, Rest, Cmd), EnvIn, EnvOut) :- 
+cmd_ternary_eval(if_else_if(if, Bool, _, Rest, Cmd), EnvIn, EnvOut) :-
     eval_bool_env(Bool, EnvIn, EnvTemp, false),
     else_if_eval(Rest, EnvTemp, EnvTemp2),
     update_variables(EnvTemp2, EnvIn, EnvTemp3),
@@ -1035,7 +1020,7 @@ get_value(I, EnvIn, Val) :-
 
 eval_expr(number(Num), _, _, Num).
 eval_expr(string_(Str), _, _, Str).
-eval_expr(variable(Iden), EnvIn, _, Value) :- 
+eval_expr(variable(Iden), EnvIn, _, Value) :-
     (get_value(Iden, EnvIn, Value) -> true; throw(error(undeclared_variable(Iden)))).
 
 eval_expr(add(E1, E2), EnvIn, EnvOut, Result) :-
@@ -1048,21 +1033,21 @@ eval_expr(add(E1, E2), EnvIn, EnvOut, Result) :-
 eval_expr(subtract(E1, E2), EnvIn, EnvOut, Result) :-
     eval_expr_env(E1, EnvIn, EnvTemp, R1),
     eval_expr_env(E2, EnvTemp, EnvOut, R2),
-    (check_same_datatype(R1, R2) -> 
+    (check_same_datatype(R1, R2) ->
         Result is R1 - R2
     ; Result = throw(error(type_mismatch))).
 
 eval_expr(multiply(E1, E2), EnvIn, EnvOut, Result) :-
     eval_expr_env(E1, EnvIn, EnvTemp, R1),
     eval_expr_env(E2, EnvTemp, EnvOut, R2),
-    (check_same_datatype(R1, R2) -> 
+    (check_same_datatype(R1, R2) ->
         Result is R1 * R2
     ; Result = throw(error(type_mismatch))).
 
 eval_expr(divide(E1, E2), EnvIn, EnvOut, Result) :-
     eval_expr_env(E1, EnvIn, EnvTemp, R1),
     eval_expr_env(E2, EnvTemp, EnvOut, R2),
-    (check_same_datatype(R1, R2) -> 
+    (check_same_datatype(R1, R2) ->
         (R2 =:= 0 -> throw(error(divide_by_zero)); Result is R1 / R2)
     ; Result = throw(error(type_mismatch))).
 
@@ -1130,7 +1115,7 @@ assignment_eval(assign(Iden, +, =, Expr), EnvIn, EnvOut):-
     is_member_of_program_var_int(Iden, EnvIn),
     eval_expr_env(Iden, EnvIn, EnvTemp, Val),
     eval_expr_env(Expr, EnvTemp, EnvTemp2, Val2),
-    (check_same_datatype(Val, Val2) -> 
+    (check_same_datatype(Val, Val2) ->
         NewVal is Val + Val2
     ; NewVal = throw(error(type_mismatch))),
     update_env(Iden, NewVal, EnvTemp2, EnvOut).
@@ -1139,7 +1124,7 @@ assignment_eval(assign(Iden, -, =, Expr), EnvIn, EnvOut):-
     is_member_of_program_var_int(Iden, EnvIn),
     eval_expr_env(Iden, EnvIn, EnvTemp, Val),
     eval_expr_env(Expr, EnvTemp, EnvTemp2, Val2),
-    (check_same_datatype(Val, Val2) -> 
+    (check_same_datatype(Val, Val2) ->
         NewVal is Val - Val2
     ; NewVal = throw(error(type_mismatch))),
     update_env(Iden, NewVal, EnvTemp2, EnvOut).
@@ -1148,7 +1133,7 @@ assignment_eval(assign(Iden, *, =, Expr), EnvIn, EnvOut):-
     is_member_of_program_var_int(Iden, EnvIn),
     eval_expr_env(Iden, EnvIn, EnvTemp, Val),
     eval_expr_env(Expr, EnvTemp, EnvTemp2, Val2),
-    (check_same_datatype(Val, Val2) -> 
+    (check_same_datatype(Val, Val2) ->
         NewVal is Val * Val2
     ; NewVal = throw(error(type_mismatch))),
     update_env(Iden, NewVal, EnvTemp2, EnvOut).
@@ -1157,7 +1142,7 @@ assignment_eval(assign(Iden, /, =, Expr), EnvIn, EnvOut):-
     is_member_of_program_var_int(Iden, EnvIn),
     eval_expr_env(Iden, EnvIn, EnvTemp, Val),
     eval_expr_env(Expr, EnvTemp, EnvTemp2, Val2),
-    (check_same_datatype(Val, Val2) -> 
+    (check_same_datatype(Val, Val2) ->
         (Val2 =:= 0 -> throw(error(divide_by_zero)); NewVal is Val / Val2)
     ; NewVal = throw(error(type_mismatch))),
     update_env(Iden, NewVal, EnvTemp2, EnvOut).

@@ -1,61 +1,60 @@
 :- module(program_eval, [program_eval/3]).
-program_eval(Prog, PrevEnv, Env) :-
-    program_eval_(Prog, PrevEnv, Env).
+program_eval(Prog, EnvIn, EnvOut) :-
+    program_evaluation(Prog, EnvIn, EnvOut).
 
-program_eval_(main(CodeBlock), PrevEnv, Env) :-
-    block_evaluation(CodeBlock, PrevEnv, Env).
+program_evaluation(main(CodeBlock), EnvIn, EnvOut) :-
+    block_eval(CodeBlock, EnvIn, EnvOut).
 
-block_evaluation(code_block(SubBlock), PrevEnv, Env):-
-    sub_block_evaluation(SubBlock, PrevEnv, Env).
+block_eval(code_block(SubBlock), EnvIn, EnvOut):-
+    sub_block_eval(SubBlock, EnvIn, EnvOut).
 
-block_evaluation(empty(), PrevEnv, PrevEnv).
+block_eval(empty(), EnvIn, EnvIn).
 
-sub_block_evaluation(sub_block(Dec, Rest), PrevEnv, Env) :- declaration_evaluation(Dec, PrevEnv, TempEnv), sub_block_evaluation(Rest, TempEnv, Env).
-sub_block_evaluation(sub_block(Cmd, Rest), PrevEnv, Env) :- command_evaluation(Cmd, PrevEnv, TempEnv), sub_block_evaluation(Rest, TempEnv, Env).
-sub_block_evaluation(sub_block(Dec), PrevEnv, Env) :- declaration_evaluation(Dec, PrevEnv, Env).
-sub_block_evaluation(sub_block(Cmd), PrevEnv, Env) :- command_evaluation(Cmd, PrevEnv, Env).
-sub_block_evaluation([], Env, Env).
+sub_block_eval(sub_block(Decl, Rest), EnvIn, EnvOut) :- declaration_eval(Decl, EnvIn, EnvTemp), sub_block_eval(Rest, EnvTemp, EnvOut).
+sub_block_eval(sub_block(Cmd, Rest), EnvIn, EnvOut) :- cmd_eval(Cmd, EnvIn, EnvTemp), sub_block_eval(Rest, EnvTemp, EnvOut).
+sub_block_eval(sub_block(Decl), EnvIn, EnvOut) :- declaration_eval(Decl, EnvIn, EnvOut).
+sub_block_eval(sub_block(Cmd), EnvIn, EnvOut) :- cmd_eval(Cmd, EnvIn, EnvOut).
+sub_block_eval([], EnvOut, EnvOut).
 
-declaration_evaluation(var_declaration(var, Datatype, Iden, ';', Rest), PrevEnv, Env) :-
-    is_variable_declared(Iden, Datatype, PrevEnv, TempEnv),
-    declaration_evaluation(Rest, TempEnv, Env).
+declaration_eval(variable_decl(var, Datatype, Iden, ';', Rest), EnvIn, EnvOut) :-
+    is_variable_declared(Iden, Datatype, EnvIn, EnvTemp),
+    declaration_eval(Rest, EnvTemp, EnvOut).
 
-declaration_evaluation(var_declaration(var, Datatype, Iden, ';'), PrevEnv, Env) :-
-    is_variable_declared(Iden, Datatype, PrevEnv, Env).
+declaration_eval(variable_decl(var, Datatype, Iden, ';'), EnvIn, EnvOut) :-
+    is_variable_declared(Iden, Datatype, EnvIn, EnvOut).
 
-declaration_evaluation(var_declaration(var, Datatype, Iden, =, Val, ';', Rest), PrevEnv, Env) :-
-    is_variable_declared(Iden, Datatype, Val, PrevEnv, TempEnv),
-    declaration_evaluation(Rest, TempEnv, Env).
+declaration_eval(variable_decl(var, Datatype, Iden, =, Val, ';', Rest), EnvIn, EnvOut) :-
+    is_variable_declared(Iden, Datatype, Val, EnvIn, EnvTemp),
+    declaration_eval(Rest, EnvTemp, EnvOut).
 
-declaration_evaluation(var_declaration(var, Datatype, Iden, =, Val, ';'), PrevEnv, Env) :-
-    is_variable_declared(Iden, Datatype, Val, PrevEnv, Env).
+declaration_eval(variable_decl(var, Datatype, Iden, =, Val, ';'), EnvIn, EnvOut) :-
+    is_variable_declared(Iden, Datatype, Val, EnvIn, EnvOut).
 
-declaration_evaluation(const_declaration(const, Datatype, Iden, =, Val, ;, Rest), PrevEnv, Env) :-
-    is_const_declared(Iden, Datatype, Val, PrevEnv, TempEnv),
-    declaration_evaluation(Rest, TempEnv, Env).
+declaration_eval(constant_decl(const, Datatype, Iden, =, Val, ;, Rest), EnvIn, EnvOut) :-
+    is_const_declared(Iden, Datatype, Val, EnvIn, EnvTemp),
+    declaration_eval(Rest, EnvTemp, EnvOut).
 
-declaration_evaluation(const_declaration(const, Datatype, Iden, =, Val, ';'), PrevEnv, Env) :-
-    is_const_declared(Iden, Datatype, Val, PrevEnv, Env).
+declaration_eval(constant_decl(const, Datatype, Iden, =, Val, ';'), EnvIn, EnvOut) :-
+    is_const_declared(Iden, Datatype, Val, EnvIn, EnvOut).
 
-
-is_const_declared(variable(Iden), datatype(Datatype), Val, PrevEnv, [(Iden, const, Datatype, N) | TempEnv]) :-
-    evaluate_extract(Val, PrevEnv, TempEnv, N),
-    \+ member((Iden, _, _, _), TempEnv),
+is_const_declared(variable(Iden), datatype(Datatype), Val, EnvIn, [(Iden, const, Datatype, N) | EnvTemp]) :-
+    eval_extract(Val, EnvIn, EnvTemp, N),
+    \+ member((Iden, _, _, _), EnvTemp),
     ( valid_datatype_value(Datatype, N)
     -> true
     ;  format('Error: invalid value "~w" for datatype "~w"~n', [N, Datatype]), fail
     ).
 
-evaluate_extract(Val, PrevEnv, Env, N) :-
-    extract_value(Val, PrevEnv, TempEnv, N),
-    (var(TempEnv) -> Env = PrevEnv; Env = TempEnv).
+eval_extract(Val, EnvIn, EnvOut, N) :-
+    extract_value(Val, EnvIn, EnvTemp, N),
+    (var(EnvTemp) -> EnvOut = EnvIn; EnvOut = EnvTemp).
 
-is_variable_declared(variable(Iden), datatype(Datatype), PrevEnv, [(Iden, var, Datatype, _) | PrevEnv]) :-
-    (\+ member((Iden, _, _, _), PrevEnv); throw(error(variable_already_declared, [Iden]))).
+is_variable_declared(variable(Iden), datatype(Datatype), EnvIn, [(Iden, var, Datatype, _) | EnvIn]) :-
+    (\+ member((Iden, _, _, _), EnvIn); throw(error(variable_already_declared, [Iden]))).
 
-is_variable_declared(variable(Iden), datatype(Datatype), Val, PrevEnv, [(Iden, var, Datatype, N) | TempEnv]) :-
-    evaluate_extract(Val, PrevEnv, TempEnv, N),
-    (\+ member((Iden, _, _, _), TempEnv)
+is_variable_declared(variable(Iden), datatype(Datatype), Val, EnvIn, [(Iden, var, Datatype, N) | EnvTemp]) :-
+    eval_extract(Val, EnvIn, EnvTemp, N),
+    (\+ member((Iden, _, _, _), EnvTemp)
     -> ( valid_datatype_value(Datatype, N)
     -> true ;  format('Error: invalid value "~w" for datatype "~w"~n', [N, Datatype]), fail)
     ; throw(error(variable_already_declared, [Iden]))).
@@ -68,17 +67,17 @@ valid_datatype_value(bool, Value) :-
     (Value == true ; Value == false).
 
 extract_value(number(N), _, _, N).
-extract_value(Bool, PrevEnv, Env, B) :- boolean_evaluation(Bool, PrevEnv, Env, B).
-extract_value(Expr, PrevEnv, Env, Num) :- eval_expression(Expr, PrevEnv, Env, Num).
-extract_value(Expr, PrevEnv, Env, Num) :- eval_ternary_expression(Expr, PrevEnv, Env, Num).
+extract_value(Bool, EnvIn, EnvOut, B) :- bool_eval(Bool, EnvIn, EnvOut, B).
+extract_value(Expr, EnvIn, EnvOut, Num) :- eval_expr(Expr, EnvIn, EnvOut, Num).
+extract_value(Expr, EnvIn, EnvOut, Num) :- eval_ternary_expr(Expr, EnvIn, EnvOut, Num).
 
-update_variables([], PrevEnv, PrevEnv).
-update_variables([(Var, Type, Datatype, Val)|Rest], PrevEnv, UpdatedEnv) :-
-    (select((Var, Type, Datatype, _), PrevEnv, _) ->
+update_variables([], EnvIn, EnvIn).
+update_variables([(Var, Type, Datatype, Val)|Rest], EnvIn, UpdatedEnv) :-
+    (select((Var, Type, Datatype, _), EnvIn, _) ->
         valid_datatype_value(Datatype, Val),
-        replace(PrevEnv, (Var, Type, Datatype, _), (Var, Type, Datatype, Val), NewTempEnv)
+        replace(EnvIn, (Var, Type, Datatype, _), (Var, Type, Datatype, Val), NewTempEnv)
     ;
-        NewTempEnv = PrevEnv
+        NewTempEnv = EnvIn
     ),
     update_variables(Rest, NewTempEnv, UpdatedEnv).
 
@@ -89,374 +88,375 @@ replace_variable((Var, Type, Datatype, Val), [Head|Rest], [Head|NewRest]) :-
     replace_variable((Var, Type, Datatype, Val), Rest, NewRest).
 
 
-evaluate_command_env(Cmd, PrevEnv, Env) :-
-    command_evaluation(Cmd, PrevEnv, TempEnv),
-    (var(TempEnv) -> Env = PrevEnv; Env = TempEnv).
+eval_cmd_env(Cmd, EnvIn, EnvOut) :-
+    cmd_eval(Cmd, EnvIn, EnvTemp),
+    (var(EnvTemp) -> EnvOut = EnvIn; EnvOut = EnvTemp).
 
-command_evaluation(command_assign(T), PrevEnv, Env) :-
-    assignment_evalutation(T, PrevEnv, Env).
+cmd_eval(cmd_assign(T), EnvIn, EnvOut) :-
+    assignment_eval(T, EnvIn, EnvOut).
 
-command_evaluation(command_assign(T, Cmd), PrevEnv, Env) :-
-    assignment_evalutation(T, PrevEnv, TempEnv),
-    command_evaluation(Cmd, TempEnv, Env).
+cmd_eval(cmd_assign(T, Cmd), EnvIn, EnvOut) :-
+    assignment_eval(T, EnvIn, EnvTemp),
+    cmd_eval(Cmd, EnvTemp, EnvOut).
 
-command_evaluation(for_loop(for, '(', Dec, Bool, ;, Expr, ')', Cmd), PrevEnv, Env):-
-    declaration_evaluation(Dec, PrevEnv, TempEnv),
-    for_loop_evaluation(Bool, Expr, Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_eval(for_loop(for, '(', Decl, Bool, ;, Expr, ')', Cmd), EnvIn, EnvOut):-
+    declaration_eval(Decl, EnvIn, EnvTemp),
+    for_loop_eval(Bool, Expr, Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_evaluation(for_loop(for, '(', Dec, Bool, ;, Expr, ')', Cmd, Cmd1), PrevEnv, Env):-
-    declaration_evaluation(Dec, PrevEnv, TempEnv),
-    for_loop_evaluation(Bool, Expr, Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_evaluation(Cmd1, TempTempTempEnv, Env).
+cmd_eval(for_loop(for, '(', Decl, Bool, ;, Expr, ')', Cmd, Cmd1), EnvIn, EnvOut):-
+    declaration_eval(Decl, EnvIn, EnvTemp),
+    for_loop_eval(Bool, Expr, Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_evaluation(for_loop(for, '(', Asg, ;, Bool, ;, Expr, ')', Cmd), PrevEnv, Env):-
-    assignment_evalutation(Asg, PrevEnv, TempEnv),
-    for_loop_evaluation(Bool, Expr, Cmd, TempEnv, TempTempTempEnv),
-    update_variables(TempTempTempEnv, PrevEnv, Env).
+cmd_eval(for_loop(for, '(', Asg, ;, Bool, ;, Expr, ')', Cmd), EnvIn, EnvOut):-
+    assignment_eval(Asg, EnvIn, EnvTemp),
+    for_loop_eval(Bool, Expr, Cmd, EnvTemp, EnvTemp3),
+    update_variables(EnvTemp3, EnvIn, EnvOut).
 
-command_evaluation(for_loop(for, '(', Asg, ;, Bool, ;, Expr, ')', Cmd, Cmd1), PrevEnv, Env):-
-    assignment_evalutation(Asg, PrevEnv, TempEnv),
-    for_loop_evaluation(Bool, Expr, Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_evaluation(Cmd1, TempTempTempEnv, Env).
+cmd_eval(for_loop(for, '(', Asg, ;, Bool, ;, Expr, ')', Cmd, Cmd1), EnvIn, EnvOut):-
+    assignment_eval(Asg, EnvIn, EnvTemp),
+    for_loop_eval(Bool, Expr, Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_evaluation(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd), PrevEnv, Env) :-
-    \+ member((Iden, var, int, _), PrevEnv),
-    for_loop_range_evaluation(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | PrevEnv], TempEnv),
-    update_variables(TempEnv, PrevEnv, Env).
+cmd_eval(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd), EnvIn, EnvOut) :-
+    \+ member((Iden, var, int, _), EnvIn),
+    for_loop_range_eval(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | EnvIn], EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvOut).
 
-command_evaluation(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd), PrevEnv, Env) :-
-    member((Iden, var, int, _), PrevEnv),
-    select((Iden, var, int, _), PrevEnv, TempEnv),
-    for_loop_range_evaluation(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | TempEnv], TempTempEnv),
-    update_variables(TempTempEnv, [(Iden, var, int, From) | TempEnv], Env).
+cmd_eval(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd), EnvIn, EnvOut) :-
+    member((Iden, var, int, _), EnvIn),
+    select((Iden, var, int, _), EnvIn, EnvTemp),
+    for_loop_range_eval(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | EnvTemp], EnvTemp2),
+    update_variables(EnvTemp2, [(Iden, var, int, From) | EnvTemp], EnvOut).
 
-command_evaluation(for_loop_range(Iden, _, _, _, _, _, _), PrevEnv, _) :-
-    member((Iden, var, Type, _), PrevEnv),
+cmd_eval(for_loop_range(Iden, _, _, _, _, _, _), EnvIn, _) :-
+    member((Iden, var, Type, _), EnvIn),
     Type \= int,
     writeln('Error: Iden should be of type int').
 
-command_evaluation(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd, Cmd1), PrevEnv, Env) :-
-    \+ member((Iden, var, int, _), PrevEnv),
-    for_loop_range_evaluation(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | PrevEnv], TempEnv),
-    update_variables(TempEnv, PrevEnv, TempTempEnv),
-    command_evaluation(Cmd1, TempTempEnv, Env).
+cmd_eval(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd, Cmd1), EnvIn, EnvOut) :-
+    \+ member((Iden, var, int, _), EnvIn),
+    for_loop_range_eval(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | EnvIn], EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvTemp2),
+    cmd_eval(Cmd1, EnvTemp2, EnvOut).
 
-command_evaluation(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd, Cmd1), PrevEnv, Env) :-
-    member((Iden, var, int, _), PrevEnv),
-    select((Iden, var, int, _), PrevEnv, TempEnv),
-    for_loop_range_evaluation(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | TempEnv], TempTempEnv),
-    update_variables(TempTempEnv, [(Iden, var, int, From) | TempEnv], TempTempTempEnv),
-    command_evaluation(Cmd1, TempTempTempEnv, Env).
+cmd_eval(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd, Cmd1), EnvIn, EnvOut) :-
+    member((Iden, var, int, _), EnvIn),
+    select((Iden, var, int, _), EnvIn, EnvTemp),
+    for_loop_range_eval(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | EnvTemp], EnvTemp2),
+    update_variables(EnvTemp2, [(Iden, var, int, From) | EnvTemp], EnvTemp3),
+    cmd_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_evaluation(for_loop_range(Iden, _, _, _, _, _, _, _), PrevEnv, _) :-
-    member((Iden, var, Type, _), PrevEnv),
-    Type \= int,
-    writeln('Error: Iden should be of type int').
-
-
-command_evaluation(for_loop_range_single(variable(Iden), in, range, number(To), Cmd), PrevEnv, Env) :-
-    \+ member((Iden, var, int, _), PrevEnv),
-    for_loop_range_evaluation(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | PrevEnv], TempEnv),
-    update_variables(TempEnv, PrevEnv, Env).
-
-command_evaluation(for_loop_range_single(variable(Iden), in, range, number(To), Cmd), PrevEnv, Env) :-
-    member((Iden, var, int, _), PrevEnv),
-    select((Iden, var, int, _), PrevEnv, TempEnv),
-    for_loop_range_evaluation(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | TempEnv], TempTempEnv),
-    update_variables(TempTempEnv, [(Iden, var, int, 0) | TempEnv], Env).
-
-command_evaluation(for_loop_range_single(Iden, _, _, _, _, _), PrevEnv, _) :-
-    member((Iden, var, Type, _), PrevEnv),
-    Type \= int,
-    writeln('Error: Iden should be of type int').
-
-command_evaluation(for_loop_range_single(variable(Iden), in, range, number(To), Cmd, Cmd1), PrevEnv, Env) :-
-    \+ member((Iden, var, int, _), PrevEnv),
-    for_loop_range_evaluation(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | PrevEnv], TempEnv),
-    update_variables(TempEnv, PrevEnv, TempTempEnv),
-    command_evaluation(Cmd1, TempTempEnv, Env).
-
-command_evaluation(for_loop_range_single(variable(Iden), in, range, number(To), Cmd, Cmd1), PrevEnv, Env) :-
-    member((Iden, var, int, _), PrevEnv),
-    select((Iden, var, int, _), PrevEnv, TempEnv),
-    for_loop_range_evaluation(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | TempEnv], TempTempEnv),
-    update_variables(TempTempEnv, [(Iden, var, int, 0) | TempEnv], TempTempTempEnv),
-    command_evaluation(Cmd1, TempTempTempEnv, Env).
-
-command_evaluation(for_loop_range_single(Iden, _, _, _, _, _, _), PrevEnv, _) :-
-    member((Iden, var, Type, _), PrevEnv),
+cmd_eval(for_loop_range(Iden, _, _, _, _, _, _, _), EnvIn, _) :-
+    member((Iden, var, Type, _), EnvIn),
     Type \= int,
     writeln('Error: Iden should be of type int').
 
 
-% command_evaluation(ternary_operator(variable(Iden), Bool, '?', Expr1, :, Expr2, Cmd), PrevEnv, Env) :-
-%     member((Iden, var, _, _), PrevEnv),
-%     boolean_evaluation(Bool, PrevEnv, Env, BoolResult),
-%     (BoolResult = true -> eval_ternary_expression(Expr1, PrevEnv, Env, Result)
-%     ; eval_ternary_expression(Expr2, PrevEnv, Env, Result)).
+cmd_eval(for_loop_range_single(variable(Iden), in, range, number(To), Cmd), EnvIn, EnvOut) :-
+    \+ member((Iden, var, int, _), EnvIn),
+    for_loop_range_eval(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | EnvIn], EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvOut).
 
-command_evaluation(if(if, Bool, Cmd), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_eval(for_loop_range_single(variable(Iden), in, range, number(To), Cmd), EnvIn, EnvOut) :-
+    member((Iden, var, int, _), EnvIn),
+    select((Iden, var, int, _), EnvIn, EnvTemp),
+    for_loop_range_eval(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | EnvTemp], EnvTemp2),
+    update_variables(EnvTemp2, [(Iden, var, int, 0) | EnvTemp], EnvOut).
 
-command_evaluation(if(if, Bool, _), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, Env, false).
+cmd_eval(for_loop_range_single(Iden, _, _, _, _, _), EnvIn, _) :-
+    member((Iden, var, Type, _), EnvIn),
+    Type \= int,
+    writeln('Error: Iden should be of type int').
 
-command_evaluation(if(if, Bool, Cmd, Cmd1), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_evaluation(Cmd1, TempTempTempEnv, Env).
+cmd_eval(for_loop_range_single(variable(Iden), in, range, number(To), Cmd, Cmd1), EnvIn, EnvOut) :-
+    \+ member((Iden, var, int, _), EnvIn),
+    for_loop_range_eval(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | EnvIn], EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvTemp2),
+    cmd_eval(Cmd1, EnvTemp2, EnvOut).
 
-command_evaluation(if(if, Bool, _, Cmd1), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    command_evaluation(Cmd1, TempEnv, Env).
+cmd_eval(for_loop_range_single(variable(Iden), in, range, number(To), Cmd, Cmd1), EnvIn, EnvOut) :-
+    member((Iden, var, int, _), EnvIn),
+    select((Iden, var, int, _), EnvIn, EnvTemp),
+    for_loop_range_eval(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | EnvTemp], EnvTemp2),
+    update_variables(EnvTemp2, [(Iden, var, int, 0) | EnvTemp], EnvTemp3),
+    cmd_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_evaluation(if_else(if, Bool, Cmd, else, _), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_eval(for_loop_range_single(Iden, _, _, _, _, _, _), EnvIn, _) :-
+    member((Iden, var, Type, _), EnvIn),
+    Type \= int,
+    writeln('Error: Iden should be of type int').
 
-command_evaluation(if_else(if, Bool, _, else, Cmd1),PrevEnv,Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    command_evaluation(Cmd1, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
 
-command_evaluation(if_else(if, Bool, Cmd, else, _, Cmd1), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_evaluation(Cmd1, TempTempTempEnv, Env).
+% cmd_eval(ternary_operator(variable(Iden), Bool, '?', Expr1, :, Expr2, Cmd), EnvIn, EnvOut) :-
+%     member((Iden, var, _, _), EnvIn),
+%     bool_eval(Bool, EnvIn, EnvOut, BoolResult),
+%     (BoolResult = true -> eval_ternary_expr(Expr1, EnvIn, EnvOut, Result)
+%     ; eval_ternary_expr(Expr2, EnvIn, EnvOut, Result)).
 
-command_evaluation(if_else(if, Bool, _, else, Cmd1, Cmd2),PrevEnv,Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    command_evaluation(Cmd1, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_evaluation(Cmd2, TempTempTempEnv, Env).
+cmd_eval(if(if, Bool, Cmd), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_evaluation(if_else_if(if, Bool, Cmd, _), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_eval(if(if, Bool, _), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvOut, false).
 
-command_evaluation(if_else_if(if, Bool, _, Rest), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    else_if_evaluation(Rest, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_eval(if(if, Bool, Cmd, Cmd1), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_evaluation(if_else_if(if, Bool, Cmd, _, Cmd), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_evaluation(Cmd, TempTempTempEnv, Env).
+cmd_eval(if(if, Bool, _, Cmd1), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    cmd_eval(Cmd1, EnvTemp, EnvOut).
 
-command_evaluation(if_else_if(if, Bool, _, Rest, Cmd), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    else_if_evaluation(Rest, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_evaluation(Cmd, TempTempTempEnv, Env).
+cmd_eval(if_else(if, Bool, Cmd, else, _), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_evaluation(while_loop(Bool, Cmd), PrevEnv, Env):-
-    while_evaluaion(Bool, Cmd, PrevEnv, TempEnv),
-    update_variables(TempEnv, PrevEnv, Env).
+cmd_eval(if_else(if, Bool, _, else, Cmd1),EnvIn,EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    cmd_eval(Cmd1, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_evaluation(while_loop(Bool, Cmd, Cmd1), PrevEnv, Env):-
-    while_evaluaion(Bool, Cmd, PrevEnv, TempEnv),
-    update_variables(TempEnv, PrevEnv, TempTempEnv),
-    command_evaluation(Cmd1, TempTempEnv, Env).
+cmd_eval(if_else(if, Bool, Cmd, else, _, Cmd1), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_evaluation(print(Print), PrevEnv, Env):-
-    eval_print_cmd_(Print, PrevEnv, Env).
+cmd_eval(if_else(if, Bool, _, else, Cmd1, Cmd2),EnvIn,EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    cmd_eval(Cmd1, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_eval(Cmd2, EnvTemp3, EnvOut).
 
-command_evaluation(print(Print, Cmd), PrevEnv, Env):-
-    eval_print_cmd_(Print, PrevEnv, TempEnv),
-    command_evaluation(Cmd, TempEnv, Env).
+cmd_eval(if_else_if(if, Bool, Cmd, _), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_evaluation(increment(Iden, +, +), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value),
+cmd_eval(if_else_if(if, Bool, _, Rest), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    else_if_eval(Rest, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
+
+cmd_eval(if_else_if(if, Bool, Cmd, _, Cmd), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_eval(Cmd, EnvTemp3, EnvOut).
+
+cmd_eval(if_else_if(if, Bool, _, Rest, Cmd), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    else_if_eval(Rest, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_eval(Cmd, EnvTemp3, EnvOut).
+
+cmd_eval(while_loop(Bool, Cmd), EnvIn, EnvOut):-
+    while_eval(Bool, Cmd, EnvIn, EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvOut).
+
+cmd_eval(while_loop(Bool, Cmd, Cmd1), EnvIn, EnvOut):-
+    while_eval(Bool, Cmd, EnvIn, EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvTemp2),
+    cmd_eval(Cmd1, EnvTemp2, EnvOut).
+
+cmd_eval(print(Print), EnvIn, EnvOut):-
+    eval_print_cmd_(Print, EnvIn, EnvOut).
+
+cmd_eval(print(Print, Cmd), EnvIn, EnvOut):-
+    eval_print_cmd_(Print, EnvIn, EnvTemp),
+    cmd_eval(Cmd, EnvTemp, EnvOut).
+
+cmd_eval(increment(Iden, +, +), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value),
     Increment is Value + 1,
-    update_environment(Iden, Increment, TempEnv, Env).
+    update_env(Iden, Increment, EnvTemp, EnvOut).
 
-command_evaluation(increment(Iden, +, +, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value),
+cmd_eval(increment(Iden, +, +, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value),
     Increment is Value + 1,
-    update_environment(Iden, Increment, TempEnv, TempTempEnv),
-    command_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Increment, EnvTemp, EnvTemp2),
+    cmd_eval(Cmd, EnvTemp2, EnvOut).
 
-command_evaluation(decrement(Iden, -, -), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value),
+cmd_eval(decrement(Iden, -, -), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value),
     Decrement is Value - 1,
-    update_environment(Iden, Decrement, TempEnv, Env).
+    update_env(Iden, Decrement, EnvTemp, EnvOut).
 
-command_evaluation(decrement(Iden, -, -, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value),
+cmd_eval(decrement(Iden, -, -, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value),
     Decrement is Value - 1,
-    update_environment(Iden, Decrement, TempEnv, TempTempEnv),
-    command_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Decrement, EnvTemp, EnvTemp2),
+    cmd_eval(Cmd, EnvTemp2, EnvOut).
 
-command_evaluation(add_(Iden, +, =, Expr), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_eval(add_(Iden, +, =, Expr), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 + Value2,
-    update_environment(Iden, Result, TempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvOut).
 
-command_evaluation(add_(Iden, +, =, Expr, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_eval(add_(Iden, +, =, Expr, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 + Value2,
-    update_environment(Iden, Result, TempEnv, TempTempEnv),
-    command_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvTemp2),
+    cmd_eval(Cmd, EnvTemp2, EnvOut).
 
-command_evaluation(sub_(Iden, -, =, Expr), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_eval(sub_(Iden, -, =, Expr), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 - Value2,
-    update_environment(Iden, Result, TempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvOut).
 
-command_evaluation(sub_(Iden, -, =, Expr, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_eval(sub_(Iden, -, =, Expr, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 - Value2,
-    update_environment(Iden, Result, TempEnv, TempTempEnv),
-    command_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvTemp2),
+    cmd_eval(Cmd, EnvTemp2, EnvOut).
 
-command_evaluation(multiply_(Iden, *, =, Expr), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_eval(multiply_(Iden, *, =, Expr), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 * Value2,
-    update_environment(Iden, Result, TempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvOut).
 
-command_evaluation(multiply_(Iden, *, =, Expr, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_eval(multiply_(Iden, *, =, Expr, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 * Value2,
-    update_environment(Iden, Result, TempEnv, TempTempEnv),
-    command_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvTemp2),
+    cmd_eval(Cmd, EnvTemp2, EnvOut).
 
-command_evaluation(divide_(Iden, /, =, Expr), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_eval(divide_(Iden, /, =, Expr), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 / Value2,
-    update_environment(Iden, Result, TempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvOut).
 
-command_evaluation(divide_(Iden, /, =, Expr, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_eval(divide_(Iden, /, =, Expr, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 / Value2,
-    update_environment(Iden, Result, TempEnv, TempTempEnv),
-    command_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvTemp2),
+    cmd_eval(Cmd, EnvTemp2, EnvOut).
 
-command_evaluation(ternary_operator(Bool, '?', Expr1, :, Expr2), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, BoolResult),
-    (BoolResult = true -> command_ternary_evaluation(Expr1, TempEnv, Env)
-    ; command_ternary_evaluation(Expr2, TempEnv, Env)).
+cmd_eval(ternary_operator(Bool, '?', Expr1, :, Expr2), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, BoolResult),
+    (BoolResult = true -> cmd_ternary_eval(Expr1, EnvTemp, EnvOut)
+    ; cmd_ternary_eval(Expr2, EnvTemp, EnvOut)).
 
-command_evaluation(ternary_operator(Bool, '?', Expr1, :, Expr2, Cmd), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, BoolResult),
-    (BoolResult = true -> command_ternary_evaluation(Expr1, TempEnv, TempTempEnv)
-    ; command_ternary_evaluation(Expr2, TempEnv, TempTempEnv)),
-    command_evaluation(Cmd, TempTempEnv, Env).
+cmd_eval(ternary_operator(Bool, '?', Expr1, :, Expr2, Cmd), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, BoolResult),
+    (BoolResult = true -> cmd_ternary_eval(Expr1, EnvTemp, EnvTemp2)
+    ; cmd_ternary_eval(Expr2, EnvTemp, EnvTemp2)),
+    cmd_eval(Cmd, EnvTemp2, EnvOut).
 
-command_evaluation(command_block(Block), PrevEnv, Env) :-
-    block_evaluation(Block, PrevEnv, Env).
+cmd_eval(cmd_block(Block), EnvIn, EnvOut) :-
+    block_eval(Block, EnvIn, EnvOut).
 
-eval_print_cmd_(Print, PrevEnv, Env) :-
-    eval_print_cmd(Print, PrevEnv, TempEnv),
-    (var(TempEnv) -> Env = PrevEnv; Env = TempEnv).
+eval_print_cmd_(Print, EnvIn, EnvOut) :-
+    eval_print_cmd(Print, EnvIn, EnvTemp),
+    (var(EnvTemp) -> EnvOut = EnvIn; EnvOut = EnvTemp).
 
-eval_print_cmd(print_string(P), PrevEnv, PrevEnv) :-
+eval_print_cmd(print_string(string_(P)), EnvIn, EnvIn) :-
     write(P),
     nl.
 
-eval_print_cmd(print_boolean(Bool), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, Env, Result),
+eval_print_cmd(print_bool(Bool), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvOut, Result),
     write(Result),
     nl.
 
-eval_print_cmd(print_expr(Expr), PrevEnv, Env) :-
-    evaluate_expr_env(Expr, PrevEnv, Env, Result),
+eval_print_cmd(print_expr(Expr), EnvIn, EnvOut) :-
+    eval_expr_env(Expr, EnvIn, EnvOut, Result),
     write(Result),
     nl.
 
-while_evaluaion(Bool, Cmd, PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_evaluation(Cmd, TempEnv, TempTempEnv),
-    while_evaluaion(Bool, Cmd, TempTempEnv, Env).
+while_eval(Bool, Cmd, EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_eval(Cmd, EnvTemp, EnvTemp2),
+    while_eval(Bool, Cmd, EnvTemp2, EnvOut).
 
-while_evaluaion(B, _, PrevEnv, Env) :-
-    evaluate_boolean_env(B, PrevEnv, Env, false).
+while_eval(B, _, EnvIn, EnvOut) :-
+    eval_bool_env(B, EnvIn, EnvOut, false).
 
-else_if_evaluation(elif(elif, Bool, Cmd), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_evaluation(Cmd, TempEnv, Env).
+else_if_eval(elif(elif, Bool, Cmd), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_eval(Cmd, EnvTemp, EnvOut).
 
-else_if_evaluation(elif(elif, Bool, _), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, Env, false).
+else_if_eval(elif(elif, Bool, _), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvOut, false).
 
-else_if_evaluation(elif(elif, Bool, Cmd, _), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool,PrevEnv,TempEnv,true),
-    command_evaluation(Cmd, TempEnv, Env).
+else_if_eval(elif(elif, Bool, Cmd, _), EnvIn, EnvOut) :-
+    eval_bool_env(Bool,EnvIn,EnvTemp,true),
+    cmd_eval(Cmd, EnvTemp, EnvOut).
 
-else_if_evaluation(elif(elif, Bool, _, Rest), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv,false),
-    else_if_evaluation(Rest, TempEnv, Env).
+else_if_eval(elif(elif, Bool, _, Rest), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp,false),
+    else_if_eval(Rest, EnvTemp, EnvOut).
 
-else_if_evaluation(elif(elif, Bool, Cmd, else, _),PrevEnv,Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv,true),
-    command_evaluation(Cmd, TempEnv, Env).
+else_if_eval(elif(elif, Bool, Cmd, else, _),EnvIn,EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp,true),
+    cmd_eval(Cmd, EnvTemp, EnvOut).
 
-else_if_evaluation(elif(elif, Bool, _, else, Cmd1), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv,false),
-    command_evaluation(Cmd1, TempEnv, Env).
-% for_loop_range_evaluation(Iden, Current, To, Jump, Cmd, PrevEnv, Env) :-
+else_if_eval(elif(elif, Bool, _, else, Cmd1), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp,false),
+    cmd_eval(Cmd1, EnvTemp, EnvOut).
+
+% for_loop_range_eval(Iden, Current, To, Jump, Cmd, EnvIn, EnvOut) :-
 %     Current < To,
-%     command_evaluation(Cmd, PrevEnv, PrevEnv),
+%     cmd_eval(Cmd, EnvIn, EnvIn),
 %     NewCurrent is Current + Jump,
-%     update_iden_value(Iden, NewCurrent, PrevEnv, UpdatedEnv),
-%     for_loop_range_evaluation(Iden, NewCurrent, To, Jump, Cmd, UpdatedEnv, Env).
+%     update_iden_value(Iden, NewCurrent, EnvIn, UpdatedEnv),
+%     for_loop_range_eval(Iden, NewCurrent, To, Jump, Cmd, UpdatedEnv, EnvOut).
 
-for_loop_range_evaluation(Iden, Current, To, Jump, Cmd, PrevEnv, Env) :-
+for_loop_range_eval(Iden, Current, To, Jump, Cmd, EnvIn, EnvOut) :-
     Current < To,
-    evaluate_command_env(Cmd, PrevEnv, TempEnv),
+    eval_cmd_env(Cmd, EnvIn, EnvTemp),
     NewCurrent is Current + Jump,
-    update_iden_value(Iden, NewCurrent, TempEnv, UpdatedEnv),
-    update_variables(UpdatedEnv, PrevEnv, TempTempTempTempEnv),
-    for_loop_range_evaluation(Iden, NewCurrent, To, Jump, Cmd, TempTempTempTempEnv, Env).
+    update_iden_value(Iden, NewCurrent, EnvTemp, UpdatedEnv),
+    update_variables(UpdatedEnv, EnvIn, EnvTemp4),
+    for_loop_range_eval(Iden, NewCurrent, To, Jump, Cmd, EnvTemp4, EnvOut).
 
-for_loop_range_evaluation(_, Current, To, _, _, Env, Env) :-
+for_loop_range_eval(_, Current, To, _, _, EnvOut, EnvOut) :-
     Current >= To.
 
-update_iden_value(Iden, Value, Env, [(Iden, var, int, Value) | TempEnv]) :-
-    select((Iden, var, int, _), Env, TempEnv).
+update_iden_value(Iden, Value, EnvOut, [(Iden, var, int, Value) | EnvTemp]) :-
+    select((Iden, var, int, _), EnvOut, EnvTemp).
 
-for_loop_evaluation(Bool, Expr, Cmd, PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, BoolValue),
+for_loop_eval(Bool, Expr, Cmd, EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, BoolValue),
     (   BoolValue == true
-    ->  evaluate_command_env(Cmd, TempEnv, TempTempEnv),
+    ->  eval_cmd_env(Cmd, EnvTemp, EnvTemp2),
         (   is_assignment(Expr)
-        ->  assignment_evalutation(Expr, TempTempEnv, TempTempTempEnv)
+        ->  assignment_eval(Expr, EnvTemp2, EnvTemp3)
         ;
-        evaluate_extract(Expr, TempTempEnv, TempTempTempEnv, _)
+        eval_extract(Expr, EnvTemp2, EnvTemp3, _)
         ),
-        update_variables(TempTempTempEnv, PrevEnv, TempTempTempTempEnv),
-        for_loop_evaluation(Bool, Expr, Cmd, TempTempTempTempEnv, Env)
-    ;   Env = PrevEnv
+        update_variables(EnvTemp3, EnvIn, EnvTemp4),
+        for_loop_eval(Bool, Expr, Cmd, EnvTemp4, EnvOut)
+    ;   EnvOut = EnvIn
     ).
 
 is_assignment(assign(variable(_), =, _)).
@@ -465,337 +465,341 @@ is_assignment(assign(variable(_), -, =, _)).
 is_assignment(assign(variable(_), *, =, _)).
 is_assignment(assign(variable(_), /, =, _)).
 
-eval_ternary_expression(Expr, PrevEnv, Env, Result) :-
-    evaluate_expr_env(Expr, PrevEnv, Env, Result).
 
-eval_ternary_expression(ternary_operator(Iden, Bool, '?', Expr1, :, Expr2), PrevEnv, Env, Result) :-
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, _),
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, BoolResult),
-    (BoolResult = true -> eval_ternary_expression(Expr1, TempEnv, Env, Result)
-    ; eval_ternary_expression(Expr2, TempEnv, Env, Result)).
+% for_loop_eval(Bool, _, _, EnvIn, EnvIn) :-
+%     eval_bool_env(Bool, EnvIn, EnvIn, false).
 
-eval_ternary_expression(ternary_operator(Bool, '?', Expr1, :, Expr2), PrevEnv, Env, Result) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, BoolResult),
-    (BoolResult = true -> eval_ternary_expression(Expr1, TempEnv, Env, Result)
-    ; eval_ternary_expression(Expr2, TempEnv, Env, Result)).
+eval_ternary_expr(Expr, EnvIn, EnvOut, Result) :-
+    eval_expr_env(Expr, EnvIn, EnvOut, Result).
+
+eval_ternary_expr(ternary_operator(Iden, Bool, '?', Expr1, :, Expr2), EnvIn, EnvOut, Result) :-
+    eval_expr_env(Iden, EnvIn, EnvTemp, _),
+    eval_bool_env(Bool, EnvIn, EnvTemp, BoolResult),
+    (BoolResult = true -> eval_ternary_expr(Expr1, EnvTemp, EnvOut, Result)
+    ; eval_ternary_expr(Expr2, EnvTemp, EnvOut, Result)).
+
+eval_ternary_expr(ternary_operator(Bool, '?', Expr1, :, Expr2), EnvIn, EnvOut, Result) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, BoolResult),
+    (BoolResult = true -> eval_ternary_expr(Expr1, EnvTemp, EnvOut, Result)
+    ; eval_ternary_expr(Expr2, EnvTemp, EnvOut, Result)).
 
 
-evaluate_command_for_ternary_env(Cmd, PrevEnv, Env) :-
-    command_ternary_evaluation(Cmd, PrevEnv, TempEnv),
-    (var(TempEnv) -> Env = PrevEnv; Env = TempEnv).
+eval_cmd_for_ternary_env(Cmd, EnvIn, EnvOut) :-
+    cmd_ternary_eval(Cmd, EnvIn, EnvTemp),
+    (var(EnvTemp) -> EnvOut = EnvIn; EnvOut = EnvTemp).
 
-command_ternary_evaluation(command_assign(T), PrevEnv, Env) :-
-    assignment_evalutation(T, PrevEnv, Env).
+cmd_ternary_eval(cmd_assign(T), EnvIn, EnvOut) :-
+    assignment_eval(T, EnvIn, EnvOut).
 
-command_ternary_evaluation(command_assign(T, Cmd), PrevEnv, Env) :-
-    assignment_evalutation(T, PrevEnv, TempEnv),
-    command_ternary_evaluation(Cmd, TempEnv, Env).
+cmd_ternary_eval(cmd_assign(T, Cmd), EnvIn, EnvOut) :-
+    assignment_eval(T, EnvIn, EnvTemp),
+    cmd_ternary_eval(Cmd, EnvTemp, EnvOut).
 
-command_ternary_evaluation(for_loop(for, '(', Dec, Bool, ;, Expr, ')', Cmd), PrevEnv, Env):-
-    declaration_evaluation(Dec, PrevEnv, TempEnv),
-    for_loop_evaluation(Bool, Expr, Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_ternary_eval(for_loop(for, '(', Decl, Bool, ;, Expr, ')', Cmd), EnvIn, EnvOut):-
+    declaration_eval(Decl, EnvIn, EnvTemp),
+    for_loop_eval(Bool, Expr, Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_ternary_evaluation(for_loop(for, '(', Dec, Bool, ;, Expr, ')', Cmd, Cmd1), PrevEnv, Env):-
-    declaration_evaluation(Dec, PrevEnv, TempEnv),
-    for_loop_evaluation(Bool, Expr, Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempTempEnv, Env).
+cmd_ternary_eval(for_loop(for, '(', Decl, Bool, ;, Expr, ')', Cmd, Cmd1), EnvIn, EnvOut):-
+    declaration_eval(Decl, EnvIn, EnvTemp),
+    for_loop_eval(Bool, Expr, Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_ternary_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_ternary_evaluation(for_loop(for, '(', Asg, ;, Bool, ;, Expr, ')', Cmd), PrevEnv, Env):-
-    assignment_evalutation(Asg, PrevEnv, TempEnv),
-    for_loop_evaluation(Bool, Expr, Cmd, TempEnv, TempTempTempEnv),
-    update_variables(TempTempTempEnv, PrevEnv, Env).
+cmd_ternary_eval(for_loop(for, '(', Asg, ;, Bool, ;, Expr, ')', Cmd), EnvIn, EnvOut):-
+    assignment_eval(Asg, EnvIn, EnvTemp),
+    for_loop_eval(Bool, Expr, Cmd, EnvTemp, EnvTemp3),
+    update_variables(EnvTemp3, EnvIn, EnvOut).
 
-command_ternary_evaluation(for_loop(for, '(', Asg, ;, Bool, ;, Expr, ')', Cmd, Cmd1), PrevEnv, Env):-
-    assignment_evalutation(Asg, PrevEnv, TempEnv),
-    for_loop_evaluation(Bool, Expr, Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempTempEnv, Env).
+cmd_ternary_eval(for_loop(for, '(', Asg, ;, Bool, ;, Expr, ')', Cmd, Cmd1), EnvIn, EnvOut):-
+    assignment_eval(Asg, EnvIn, EnvTemp),
+    for_loop_eval(Bool, Expr, Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_ternary_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_ternary_evaluation(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd), PrevEnv, Env) :-
-    \+ member((Iden, var, int, _), PrevEnv),
-    for_loop_range_evaluation(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | PrevEnv], TempEnv),
-    update_variables(TempEnv, PrevEnv, Env).
+cmd_ternary_eval(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd), EnvIn, EnvOut) :-
+    \+ member((Iden, var, int, _), EnvIn),
+    for_loop_range_eval(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | EnvIn], EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvOut).
 
-command_ternary_evaluation(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd), PrevEnv, Env) :-
-    member((Iden, var, int, _), PrevEnv),
-    select((Iden, var, int, _), PrevEnv, TempEnv),
-    for_loop_range_evaluation(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | TempEnv], TempTempEnv),
-    update_variables(TempTempEnv, [(Iden, var, int, From) | TempEnv], Env).
+cmd_ternary_eval(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd), EnvIn, EnvOut) :-
+    member((Iden, var, int, _), EnvIn),
+    select((Iden, var, int, _), EnvIn, EnvTemp),
+    for_loop_range_eval(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | EnvTemp], EnvTemp2),
+    update_variables(EnvTemp2, [(Iden, var, int, From) | EnvTemp], EnvOut).
 
-command_ternary_evaluation(for_loop_range(Iden, _, _, _, _, _, _), PrevEnv, _) :-
-    member((Iden, var, Type, _), PrevEnv),
+cmd_ternary_eval(for_loop_range(Iden, _, _, _, _, _, _), EnvIn, _) :-
+    member((Iden, var, Type, _), EnvIn),
     Type \= int,
     writeln('Error: Iden should be of type int').
 
-command_ternary_evaluation(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd, Cmd1), PrevEnv, Env) :-
-    \+ member((Iden, var, int, _), PrevEnv),
-    for_loop_range_evaluation(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | PrevEnv], TempEnv),
-    update_variables(TempEnv, PrevEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempEnv, Env).
+cmd_ternary_eval(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd, Cmd1), EnvIn, EnvOut) :-
+    \+ member((Iden, var, int, _), EnvIn),
+    for_loop_range_eval(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | EnvIn], EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvTemp2),
+    cmd_ternary_eval(Cmd1, EnvTemp2, EnvOut).
 
-command_ternary_evaluation(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd, Cmd1), PrevEnv, Env) :-
-    member((Iden, var, int, _), PrevEnv),
-    select((Iden, var, int, _), PrevEnv, TempEnv),
-    for_loop_range_evaluation(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | TempEnv], TempTempEnv),
-    update_variables(TempTempEnv, [(Iden, var, int, From) | TempEnv], TempTempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempTempEnv, Env).
+cmd_ternary_eval(for_loop_range(variable(Iden), in, range, number(From), number(To), number(Jump), Cmd, Cmd1), EnvIn, EnvOut) :-
+    member((Iden, var, int, _), EnvIn),
+    select((Iden, var, int, _), EnvIn, EnvTemp),
+    for_loop_range_eval(Iden, From, To, Jump, Cmd, [(Iden, var, int, From) | EnvTemp], EnvTemp2),
+    update_variables(EnvTemp2, [(Iden, var, int, From) | EnvTemp], EnvTemp3),
+    cmd_ternary_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_ternary_evaluation(for_loop_range(Iden, _, _, _, _, _, _, _), PrevEnv, _) :-
-    member((Iden, var, Type, _), PrevEnv),
-    Type \= int,
-    writeln('Error: Iden should be of type int').
-
-
-command_ternary_evaluation(for_loop_range_single(variable(Iden), in, range, number(To), Cmd), PrevEnv, Env) :-
-    \+ member((Iden, var, int, _), PrevEnv),
-    for_loop_range_evaluation(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | PrevEnv], TempEnv),
-    update_variables(TempEnv, PrevEnv, Env).
-
-command_ternary_evaluation(for_loop_range_single(variable(Iden), in, range, number(To), Cmd), PrevEnv, Env) :-
-    member((Iden, var, int, _), PrevEnv),
-    select((Iden, var, int, _), PrevEnv, TempEnv),
-    for_loop_range_evaluation(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | TempEnv], TempTempEnv),
-    update_variables(TempTempEnv, [(Iden, var, int, 0) | TempEnv], Env).
-
-command_ternary_evaluation(for_loop_range_single(Iden, _, _, _, _, _), PrevEnv, _) :-
-    member((Iden, var, Type, _), PrevEnv),
-    Type \= int,
-    writeln('Error: Iden should be of type int').
-
-command_ternary_evaluation(for_loop_range_single(variable(Iden), in, range, number(To), Cmd, Cmd1), PrevEnv, Env) :-
-    \+ member((Iden, var, int, _), PrevEnv),
-    for_loop_range_evaluation(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | PrevEnv], TempEnv),
-    update_variables(TempEnv, PrevEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempEnv, Env).
-
-command_ternary_evaluation(for_loop_range_single(variable(Iden), in, range, number(To), Cmd, Cmd1), PrevEnv, Env) :-
-    member((Iden, var, int, _), PrevEnv),
-    select((Iden, var, int, _), PrevEnv, TempEnv),
-    for_loop_range_evaluation(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | TempEnv], TempTempEnv),
-    update_variables(TempTempEnv, [(Iden, var, int, 0) | TempEnv], TempTempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempTempEnv, Env).
-
-command_ternary_evaluation(for_loop_range_single(Iden, _, _, _, _, _, _), PrevEnv, _) :-
-    member((Iden, var, Type, _), PrevEnv),
+cmd_ternary_eval(for_loop_range(Iden, _, _, _, _, _, _, _), EnvIn, _) :-
+    member((Iden, var, Type, _), EnvIn),
     Type \= int,
     writeln('Error: Iden should be of type int').
 
 
-% command_ternary_evaluation(ternary_operator(variable(Iden), Bool, '?', Expr1, :, Expr2, Cmd), PrevEnv, Env) :-
-%     member((Iden, var, _, _), PrevEnv),
-%     boolean_evaluation(Bool, PrevEnv, Env, BoolResult),
-%     (BoolResult = true -> eval_ternary_expression(Expr1, PrevEnv, Env, Result)
-%     ; eval_ternary_expression(Expr2, PrevEnv, Env, Result)).
+cmd_ternary_eval(for_loop_range_single(variable(Iden), in, range, number(To), Cmd), EnvIn, EnvOut) :-
+    \+ member((Iden, var, int, _), EnvIn),
+    for_loop_range_eval(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | EnvIn], EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvOut).
 
-command_ternary_evaluation(if(if, Bool, Cmd), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_ternary_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_ternary_eval(for_loop_range_single(variable(Iden), in, range, number(To), Cmd), EnvIn, EnvOut) :-
+    member((Iden, var, int, _), EnvIn),
+    select((Iden, var, int, _), EnvIn, EnvTemp),
+    for_loop_range_eval(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | EnvTemp], EnvTemp2),
+    update_variables(EnvTemp2, [(Iden, var, int, 0) | EnvTemp], EnvOut).
 
-command_ternary_evaluation(if(if, Bool, _), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, Env, false).
+cmd_ternary_eval(for_loop_range_single(Iden, _, _, _, _, _), EnvIn, _) :-
+    member((Iden, var, Type, _), EnvIn),
+    Type \= int,
+    writeln('Error: Iden should be of type int').
 
-command_ternary_evaluation(if(if, Bool, Cmd, Cmd1), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_ternary_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempTempEnv, Env).
+cmd_ternary_eval(for_loop_range_single(variable(Iden), in, range, number(To), Cmd, Cmd1), EnvIn, EnvOut) :-
+    \+ member((Iden, var, int, _), EnvIn),
+    for_loop_range_eval(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | EnvIn], EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvTemp2),
+    cmd_ternary_eval(Cmd1, EnvTemp2, EnvOut).
 
-command_ternary_evaluation(if(if, Bool, _, Cmd1), PrevEnv, Env) :-
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    command_ternary_evaluation(Cmd1, TempEnv, Env).
+cmd_ternary_eval(for_loop_range_single(variable(Iden), in, range, number(To), Cmd, Cmd1), EnvIn, EnvOut) :-
+    member((Iden, var, int, _), EnvIn),
+    select((Iden, var, int, _), EnvIn, EnvTemp),
+    for_loop_range_eval(Iden, 0, To, 1, Cmd, [(Iden, var, int, 0) | EnvTemp], EnvTemp2),
+    update_variables(EnvTemp2, [(Iden, var, int, 0) | EnvTemp], EnvTemp3),
+    cmd_ternary_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_ternary_evaluation(if_else(if, Bool, Cmd, else, _), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_ternary_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_ternary_eval(for_loop_range_single(Iden, _, _, _, _, _, _), EnvIn, _) :-
+    member((Iden, var, Type, _), EnvIn),
+    Type \= int,
+    writeln('Error: Iden should be of type int').
 
-command_ternary_evaluation(if_else(if, Bool, _, else, Cmd1),PrevEnv,Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    command_ternary_evaluation(Cmd1, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
 
-command_ternary_evaluation(if_else(if, Bool, Cmd, else, _, Cmd1), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_ternary_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempTempEnv, Env).
+% cmd_ternary_eval(ternary_operator(variable(Iden), Bool, '?', Expr1, :, Expr2, Cmd), EnvIn, EnvOut) :-
+%     member((Iden, var, _, _), EnvIn),
+%     bool_eval(Bool, EnvIn, EnvOut, BoolResult),
+%     (BoolResult = true -> eval_ternary_expr(Expr1, EnvIn, EnvOut, Result)
+%     ; eval_ternary_expr(Expr2, EnvIn, EnvOut, Result)).
 
-command_ternary_evaluation(if_else(if, Bool, _, else, Cmd1, Cmd2),PrevEnv,Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    command_ternary_evaluation(Cmd1, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_ternary_evaluation(Cmd2, TempTempTempEnv, Env).
+cmd_ternary_eval(if(if, Bool, Cmd), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_ternary_evaluation(if_else_if(if, Bool, Cmd, _), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_ternary_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_ternary_eval(if(if, Bool, _), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvOut, false).
 
-command_ternary_evaluation(if_else_if(if, Bool, _, Rest), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    else_if_evaluation(Rest, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, Env).
+cmd_ternary_eval(if(if, Bool, Cmd, Cmd1), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_ternary_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_ternary_evaluation(if_else_if(if, Bool, Cmd, _, Cmd), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, true),
-    command_ternary_evaluation(Cmd, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_ternary_evaluation(Cmd, TempTempTempEnv, Env).
+cmd_ternary_eval(if(if, Bool, _, Cmd1), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    cmd_ternary_eval(Cmd1, EnvTemp, EnvOut).
 
-command_ternary_evaluation(if_else_if(if, Bool, _, Rest, Cmd), PrevEnv, Env) :- 
-    evaluate_boolean_env(Bool, PrevEnv, TempEnv, false),
-    else_if_evaluation(Rest, TempEnv, TempTempEnv),
-    update_variables(TempTempEnv, PrevEnv, TempTempTempEnv),
-    command_ternary_evaluation(Cmd, TempTempTempEnv, Env).
+cmd_ternary_eval(if_else(if, Bool, Cmd, else, _), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_ternary_evaluation(while_loop(Bool, Cmd), PrevEnv, Env):-
-    while_evaluaion(Bool, Cmd, PrevEnv, TempEnv),
-    update_variables(TempEnv, PrevEnv, Env).
+cmd_ternary_eval(if_else(if, Bool, _, else, Cmd1),EnvIn,EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    cmd_ternary_eval(Cmd1, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_ternary_evaluation(while_loop(Bool, Cmd, Cmd1), PrevEnv, Env):-
-    while_evaluaion(Bool, Cmd, PrevEnv, TempEnv),
-    update_variables(TempEnv, PrevEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd1, TempTempEnv, Env).
+cmd_ternary_eval(if_else(if, Bool, Cmd, else, _, Cmd1), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_ternary_eval(Cmd1, EnvTemp3, EnvOut).
 
-command_ternary_evaluation(print(Print), PrevEnv, Env):-
-    eval_print_cmd_(Print, PrevEnv, Env).
+cmd_ternary_eval(if_else(if, Bool, _, else, Cmd1, Cmd2),EnvIn,EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    cmd_ternary_eval(Cmd1, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_ternary_eval(Cmd2, EnvTemp3, EnvOut).
 
-command_ternary_evaluation(print(Print, Cmd), PrevEnv, Env):-
-    eval_print_cmd_(Print, PrevEnv, TempEnv),
-    command_ternary_evaluation(Cmd, TempEnv, Env).
+cmd_ternary_eval(if_else_if(if, Bool, Cmd, _), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
 
-command_ternary_evaluation(increment(Iden, +, +), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value),
+cmd_ternary_eval(if_else_if(if, Bool, _, Rest), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    else_if_eval(Rest, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvOut).
+
+cmd_ternary_eval(if_else_if(if, Bool, Cmd, _, Cmd), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, true),
+    cmd_ternary_eval(Cmd, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_ternary_eval(Cmd, EnvTemp3, EnvOut).
+
+cmd_ternary_eval(if_else_if(if, Bool, _, Rest, Cmd), EnvIn, EnvOut) :-
+    eval_bool_env(Bool, EnvIn, EnvTemp, false),
+    else_if_eval(Rest, EnvTemp, EnvTemp2),
+    update_variables(EnvTemp2, EnvIn, EnvTemp3),
+    cmd_ternary_eval(Cmd, EnvTemp3, EnvOut).
+
+cmd_ternary_eval(while_loop(Bool, Cmd), EnvIn, EnvOut):-
+    while_eval(Bool, Cmd, EnvIn, EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvOut).
+
+cmd_ternary_eval(while_loop(Bool, Cmd, Cmd1), EnvIn, EnvOut):-
+    while_eval(Bool, Cmd, EnvIn, EnvTemp),
+    update_variables(EnvTemp, EnvIn, EnvTemp2),
+    cmd_ternary_eval(Cmd1, EnvTemp2, EnvOut).
+
+cmd_ternary_eval(print(Print), EnvIn, EnvOut):-
+    eval_print_cmd_(Print, EnvIn, EnvOut).
+
+cmd_ternary_eval(print(Print, Cmd), EnvIn, EnvOut):-
+    eval_print_cmd_(Print, EnvIn, EnvTemp),
+    cmd_ternary_eval(Cmd, EnvTemp, EnvOut).
+
+cmd_ternary_eval(increment(Iden, +, +), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value),
     Increment is Value + 1,
-    update_environment(Iden, Increment, TempEnv, Env).
+    update_env(Iden, Increment, EnvTemp, EnvOut).
 
-command_ternary_evaluation(increment(Iden, +, +, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value),
+cmd_ternary_eval(increment(Iden, +, +, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value),
     Increment is Value + 1,
-    update_environment(Iden, Increment, TempEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Increment, EnvTemp, EnvTemp2),
+    cmd_ternary_eval(Cmd, EnvTemp2, EnvOut).
 
-command_ternary_evaluation(decrement(Iden, -, -), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value),
+cmd_ternary_eval(decrement(Iden, -, -), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value),
     Decrement is Value - 1,
-    update_environment(Iden, Decrement, TempEnv, Env).
+    update_env(Iden, Decrement, EnvTemp, EnvOut).
 
-command_ternary_evaluation(decrement(Iden, -, -, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value),
+cmd_ternary_eval(decrement(Iden, -, -, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value),
     Decrement is Value - 1,
-    update_environment(Iden, Decrement, TempEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Decrement, EnvTemp, EnvTemp2),
+    cmd_ternary_eval(Cmd, EnvTemp2, EnvOut).
 
-command_ternary_evaluation(add_(Iden, +, =, Expr), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_ternary_eval(add_(Iden, +, =, Expr), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 + Value2,
-    update_environment(Iden, Result, TempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvOut).
 
-command_ternary_evaluation(add_(Iden, +, =, Expr, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_ternary_eval(add_(Iden, +, =, Expr, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 + Value2,
-    update_environment(Iden, Result, TempEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvTemp2),
+    cmd_ternary_eval(Cmd, EnvTemp2, EnvOut).
 
-command_ternary_evaluation(sub_(Iden, -, =, Expr), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_ternary_eval(sub_(Iden, -, =, Expr), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 - Value2,
-    update_environment(Iden, Result, TempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvOut).
 
-command_ternary_evaluation(sub_(Iden, -, =, Expr, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_ternary_eval(sub_(Iden, -, =, Expr, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 - Value2,
-    update_environment(Iden, Result, TempEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvTemp2),
+    cmd_ternary_eval(Cmd, EnvTemp2, EnvOut).
 
-command_ternary_evaluation(multiply_(Iden, *, =, Expr), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_ternary_eval(multiply_(Iden, *, =, Expr), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 * Value2,
-    update_environment(Iden, Result, TempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvOut).
 
-command_ternary_evaluation(multiply_(Iden, *, =, Expr, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_ternary_eval(multiply_(Iden, *, =, Expr, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 * Value2,
-    update_environment(Iden, Result, TempEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvTemp2),
+    cmd_ternary_eval(Cmd, EnvTemp2, EnvOut).
 
-command_ternary_evaluation(divide_(Iden, /, =, Expr), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_ternary_eval(divide_(Iden, /, =, Expr), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 / Value2,
-    update_environment(Iden, Result, TempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvOut).
 
-command_ternary_evaluation(divide_(Iden, /, =, Expr, Cmd), PrevEnv, Env) :-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Value1),
-    evaluate_expr_env(Expr, PrevEnv, TempEnv, Value2),
+cmd_ternary_eval(divide_(Iden, /, =, Expr, Cmd), EnvIn, EnvOut) :-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Value1),
+    eval_expr_env(Expr, EnvIn, EnvTemp, Value2),
     Result is Value1 / Value2,
-    update_environment(Iden, Result, TempEnv, TempTempEnv),
-    command_ternary_evaluation(Cmd, TempTempEnv, Env).
+    update_env(Iden, Result, EnvTemp, EnvTemp2),
+    cmd_ternary_eval(Cmd, EnvTemp2, EnvOut).
 
-evaluate_boolean_env(Bool, PrevEnv, Env, Result) :-
-    boolean_evaluation(Bool, PrevEnv, TempEnv, Result),
-    (var(TempEnv) -> Env = PrevEnv; Env = TempEnv).
+eval_bool_env(Bool, EnvIn, EnvOut, Result) :-
+    bool_eval(Bool, EnvIn, EnvTemp, Result),
+    (var(EnvTemp) -> EnvOut = EnvIn; EnvOut = EnvTemp).
 
-evaluate_expr_env(Expr, PrevEnv, Env, Result) :-
-    eval_expression(Expr, PrevEnv, TempEnv, Result),
-    (var(TempEnv) -> Env = PrevEnv; Env = TempEnv).
+eval_expr_env(Expr, EnvIn, EnvOut, Result) :-
+    eval_expr(Expr, EnvIn, EnvTemp, Result),
+    (var(EnvTemp) -> EnvOut = EnvIn; EnvOut = EnvTemp).
 
-boolean_evaluation(boolean_true(true), _, _, true).
-boolean_evaluation(boolean_false(false), _, _, false).
-boolean_evaluation(boolean_equals(E, == ,E1), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(E1, TempEnv, Env, Val1),
+bool_eval(bool_true(true), _, _, true).
+bool_eval(bool_false(false), _, _, false).
+bool_eval(bool_equals(E, == ,E1), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E, EnvIn, EnvTemp, Val),
+    eval_expr_env(E1, EnvTemp, EnvOut, Val1),
     compare_value(Val, Val1, Result).
-boolean_evaluation(boolean_greater(E, > ,E1), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(E1, TempEnv, Env, Val1),
+bool_eval(bool_greater(E, > ,E1), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E, EnvIn, EnvTemp, Val),
+    eval_expr_env(E1, EnvTemp, EnvOut, Val1),
     (Val > Val1 -> Result = true
     ; Result = false).
-boolean_evaluation(boolean_less(E, < ,E1), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(E1, TempEnv, Env, Val1),
+bool_eval(bool_less(E, < ,E1), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E, EnvIn, EnvTemp, Val),
+    eval_expr_env(E1, EnvTemp, EnvOut, Val1),
     (Val < Val1 -> Result = true
     ; Result = false).
-boolean_evaluation(boolean_greater_equal(E, >= ,E1), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(E1, TempEnv, Env, Val1),
+bool_eval(bool_greater_equal(E, >= ,E1), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E, EnvIn, EnvTemp, Val),
+    eval_expr_env(E1, EnvTemp, EnvOut, Val1),
     (Val >= Val1 -> Result = true
     ; Result = false).
-boolean_evaluation(boolean_less_equal(E, <= ,E1), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(E1, TempEnv, Env, Val1),
+bool_eval(bool_less_equal(E, <= ,E1), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E, EnvIn, EnvTemp, Val),
+    eval_expr_env(E1, EnvTemp, EnvOut, Val1),
     (Val =< Val1 -> Result = true
     ; Result = false).
-boolean_evaluation(boolean_negation(not, B), PrevEnv, Env, Result) :-
-    evaluate_boolean_env(B, PrevEnv, Env, TempResult),
+bool_eval(bool_negation(not, B), EnvIn, EnvOut, Result) :-
+    eval_bool_env(B, EnvIn, EnvOut, TempResult),
     negate(TempResult, Result).
-boolean_evaluation(boolean_negation(!, B), PrevEnv, Env, Result) :-
-    evaluate_boolean_env(B, PrevEnv, Env, TempResult),
+bool_eval(bool_negation(!, B), EnvIn, EnvOut, Result) :-
+    eval_bool_env(B, EnvIn, EnvOut, TempResult),
     negate(TempResult, Result).
-boolean_evaluation(boolean_not_equal(E, '!=' ,E1), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(E1, TempEnv, Env, Val1),
+bool_eval(bool_not_equal(E, '!=' ,E1), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E, EnvIn, EnvTemp, Val),
+    eval_expr_env(E1, EnvTemp, EnvOut, Val1),
     (\+ Val = Val1 -> Result = true
     ; Result = false).
 
@@ -808,119 +812,118 @@ check_same_datatype(Val1, Val2) :-
     ((number(Val1), number(Val2));
     (string(Val1), string(Val2))).
 
-get_value(I, PrevEnv, Val) :-
-    member((I, _, _, Val), PrevEnv).
+get_value(I, EnvIn, Val) :-
+    member((I, _, _, Val), EnvIn).
 
-eval_expression(number(Num), _, _, Num).
-eval_expression(string_(Str), _, _, Str).
-eval_expression(variable(Iden), PrevEnv, _, Value) :- 
-    (get_value(Iden, PrevEnv, Value) -> true; throw(error(undeclared_variable(Iden)))).
+eval_expr(number(Num), _, _, Num).
+eval_expr(string_(Str), _, _, Str).
+eval_expr(variable(Iden), EnvIn, _, Value) :-
+    (get_value(Iden, EnvIn, Value) -> true; throw(error(undeclared_variable(Iden)))).
 
-eval_expression(add(E1, E2), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E1, PrevEnv, TempEnv, R1),
-    evaluate_expr_env(E2, TempEnv, Env, R2),
+eval_expr(add(E1, E2), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E1, EnvIn, EnvTemp, R1),
+    eval_expr_env(E2, EnvTemp, EnvOut, R2),
     (check_same_datatype(R1, R2) ->
         Result is R1 + R2
     ; Result = throw(error(type_mismatch))).
 
-eval_expression(substract(E1, E2), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E1, PrevEnv, TempEnv, R1),
-    evaluate_expr_env(E2, TempEnv, Env, R2),
-    (check_same_datatype(R1, R2) -> 
+eval_expr(subtract(E1, E2), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E1, EnvIn, EnvTemp, R1),
+    eval_expr_env(E2, EnvTemp, EnvOut, R2),
+    (check_same_datatype(R1, R2) ->
         Result is R1 - R2
     ; Result = throw(error(type_mismatch))).
 
-eval_expression(multiply(E1, E2), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E1, PrevEnv, TempEnv, R1),
-    evaluate_expr_env(E2, TempEnv, Env, R2),
-    (check_same_datatype(R1, R2) -> 
+eval_expr(multiply(E1, E2), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E1, EnvIn, EnvTemp, R1),
+    eval_expr_env(E2, EnvTemp, EnvOut, R2),
+    (check_same_datatype(R1, R2) ->
         Result is R1 * R2
     ; Result = throw(error(type_mismatch))).
 
-eval_expression(divide(E1, E2), PrevEnv, Env, Result) :-
-    evaluate_expr_env(E1, PrevEnv, TempEnv, R1),
-    evaluate_expr_env(E2, TempEnv, Env, R2),
-    (check_same_datatype(R1, R2) -> 
+eval_expr(divide(E1, E2), EnvIn, EnvOut, Result) :-
+    eval_expr_env(E1, EnvIn, EnvTemp, R1),
+    eval_expr_env(E2, EnvTemp, EnvOut, R2),
+    (check_same_datatype(R1, R2) ->
         (R2 =:= 0 -> throw(error(divide_by_zero)); Result is R1 / R2)
     ; Result = throw(error(type_mismatch))).
 
-eval_expression(parenthesis(E), PrevEnv, Env, Result) :-
-    eval_expression(E, PrevEnv, Env, Result).
+eval_expr(parenthesis(E), EnvIn, EnvOut, Result) :-
+    eval_expr(E, EnvIn, EnvOut, Result).
 
-eval_expression(increment(Iden, +, +), PrevEnv, Env, Result) :-
-    eval_expression(Iden, PrevEnv, Env, Value),
+eval_expr(increment(Iden, +, +), EnvIn, EnvOut, Result) :-
+    eval_expr(Iden, EnvIn, EnvOut, Value),
     Result is Value + 1,
-    update_environment(Iden, Result, PrevEnv, Env),
-    asserta(updated_environment(Env)).
+    update_env(Iden, Result, EnvIn, EnvOut),
+    asserta(updated_env(EnvOut)).
 
-eval_expression(decrement(Iden, -, -), PrevEnv, Env, Result) :-
-    eval_expression(Iden, PrevEnv, Env, Value),
+eval_expr(decrement(Iden, -, -), EnvIn, EnvOut, Result) :-
+    eval_expr(Iden, EnvIn, EnvOut, Value),
     Result is Value - 1,
-    update_environment(Iden, Result, PrevEnv, Env),
-    asserta(updated_environment(Env)).
+    update_env(Iden, Result, EnvIn, EnvOut),
+    asserta(updated_env(EnvOut)).
 
 
-update_environment(variable(Iden), Val, PrevEnv, Env) :-
-    (select((Iden, Dec, Dtype, _), PrevEnv, _) ->
+update_env(variable(Iden), Val, EnvIn, EnvOut) :-
+    (select((Iden, Decl, Dtype, _), EnvIn, _) ->
         (valid_datatype_value(Dtype, Val) ->
-            replace(PrevEnv, (Iden, Dec, Dtype, _), (Iden, Dec, Dtype, Val), Env)
+            replace(EnvIn, (Iden, Decl, Dtype, _), (Iden, Decl, Dtype, Val), EnvOut)
         ;
             throw(error(invalid_datatype, context('Provided value does not match the expected datatype'))),
-            Env = PrevEnv
+            EnvOut = EnvIn
         )
     ;
-        Env = PrevEnv
+        EnvOut = EnvIn
     ).
-
 
 
 replace([H|T], H, New, [New|T]).
 replace([H|T], Old, New, [H|NewT]) :-
     replace(T, Old, New, NewT).
 
-assignment_evalutation(assign(Iden, =, Expr), PrevEnv, Env):-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_extract(Expr, PrevEnv, TempEnv, Val),
-    update_environment(Iden, Val, TempEnv, Env).
+assignment_eval(assign(Iden, =, Expr), EnvIn, EnvOut):-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_extract(Expr, EnvIn, EnvTemp, Val),
+    update_env(Iden, Val, EnvTemp, EnvOut).
 
-assignment_evalutation(assign(Iden, +, =, Expr), PrevEnv, Env):-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(Expr, TempEnv, TempTempEnv, Val2),
-    (check_same_datatype(Val, Val2) -> 
+assignment_eval(assign(Iden, +, =, Expr), EnvIn, EnvOut):-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Val),
+    eval_expr_env(Expr, EnvTemp, EnvTemp2, Val2),
+    (check_same_datatype(Val, Val2) ->
         NewVal is Val + Val2
     ; NewVal = throw(error(type_mismatch))),
-    update_environment(Iden, NewVal, TempTempEnv, Env).
+    update_env(Iden, NewVal, EnvTemp2, EnvOut).
 
-assignment_evalutation(assign(Iden, -, =, Expr), PrevEnv, Env):-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(Expr, TempEnv, TempTempEnv, Val2),
-    (check_same_datatype(Val, Val2) -> 
+assignment_eval(assign(Iden, -, =, Expr), EnvIn, EnvOut):-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Val),
+    eval_expr_env(Expr, EnvTemp, EnvTemp2, Val2),
+    (check_same_datatype(Val, Val2) ->
         NewVal is Val - Val2
     ; NewVal = throw(error(type_mismatch))),
-    update_environment(Iden, NewVal, TempTempEnv, Env).
+    update_env(Iden, NewVal, EnvTemp2, EnvOut).
 
-assignment_evalutation(assign(Iden, *, =, Expr), PrevEnv, Env):-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(Expr, TempEnv, TempTempEnv, Val2),
-    (check_same_datatype(Val, Val2) -> 
+assignment_eval(assign(Iden, *, =, Expr), EnvIn, EnvOut):-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Val),
+    eval_expr_env(Expr, EnvTemp, EnvTemp2, Val2),
+    (check_same_datatype(Val, Val2) ->
         NewVal is Val * Val2
     ; NewVal = throw(error(type_mismatch))),
-    update_environment(Iden, NewVal, TempTempEnv, Env).
+    update_env(Iden, NewVal, EnvTemp2, EnvOut).
 
-assignment_evalutation(assign(Iden, /, =, Expr), PrevEnv, Env):-
-    is_member_of_program_var_int(Iden, PrevEnv),
-    evaluate_expr_env(Iden, PrevEnv, TempEnv, Val),
-    evaluate_expr_env(Expr, TempEnv, TempTempEnv, Val2),
-    (check_same_datatype(Val, Val2) -> 
+assignment_eval(assign(Iden, /, =, Expr), EnvIn, EnvOut):-
+    is_member_of_program_var_int(Iden, EnvIn),
+    eval_expr_env(Iden, EnvIn, EnvTemp, Val),
+    eval_expr_env(Expr, EnvTemp, EnvTemp2, Val2),
+    (check_same_datatype(Val, Val2) ->
         (Val2 =:= 0 -> throw(error(divide_by_zero)); NewVal is Val / Val2)
     ; NewVal = throw(error(type_mismatch))),
-    update_environment(Iden, NewVal, TempTempEnv, Env).
+    update_env(Iden, NewVal, EnvTemp2, EnvOut).
 
-is_member_of_program(variable(Iden), Env):-
-    memberchk((Iden, _, _, _), Env).
+is_member_of_program(variable(Iden), EnvOut):-
+    memberchk((Iden, _, _, _), EnvOut).
 
-is_member_of_program_var_int(variable(Iden), Env):-
-    memberchk((Iden, var, _, _), Env).
+is_member_of_program_var_int(variable(Iden), EnvOut):-
+    memberchk((Iden, var, _, _), EnvOut).

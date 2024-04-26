@@ -60,7 +60,7 @@ def lexical_analyzer(filename):
                         tokens_list += ", "
     tokens_list = tokens_list[:-2]
     tokens_list = tokens_list.split(", ")
-    tokens_file = filename[:-5] + "lst"
+    tokens_file = filename[:-2] + "lst"
     with open(tokens_file, "w") as file:
         for token in tokens_list:
             token = token.replace("'", "")

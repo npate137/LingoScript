@@ -5,7 +5,7 @@
 
 main(Filename) :- nl,
     ansi_format([bold,fg(yellow)], 'Initiating Parser', []), nl,
-    read_file(Filename, FileData),
+    custom_read_file(Filename, FileData),
     program(ParseTree, FileData, []),
     write("Generating Parse Tree: "), success_flag, nl,
     write(ParseTree), nl,
