@@ -791,6 +791,22 @@ bool_eval(bool_less_equal(E, <= ,E1), EnvIn, EnvOut, Result) :-
     eval_expr_env(E1, EnvTemp, EnvOut, Val1),
     (Val =< Val1 -> Result = true
     ; Result = false).
+bool_eval(bool_ands(E, &, E1), EnvIn, EnvOut, Result) :-
+    eval_bool_env(E, EnvIn, EnvTemp, Val),
+    eval_bool_env(E1, EnvTemp, EnvOut, Val1),
+    (Val = true, Val1 = true -> Result = true; Result = false).
+bool_eval(bool_ors(E, '|', E1), EnvIn, EnvOut, Result) :-
+    eval_bool_env(E, EnvIn, EnvTemp, Val),
+    eval_bool_env(E1, EnvTemp, EnvOut, Val1),
+    (Val = false, Val1 = false -> Result = false; Result = true).
+bool_eval(bool_and(E, and, E1), EnvIn, EnvOut, Result) :-
+    eval_bool_env(E, EnvIn, EnvTemp, Val),
+    eval_bool_env(E1, EnvTemp, EnvOut, Val1),
+    (Val = true, Val1 = true -> Result = true; Result = false).
+bool_eval(bool_or(E, or, E1), EnvIn, EnvOut, Result) :-
+    eval_bool_env(E, EnvIn, EnvTemp, Val),
+    eval_bool_env(E1, EnvTemp, EnvOut, Val1),
+    (Val = false, Val1 = false -> Result = false; Result = true).
 bool_eval(bool_negation(not, B), EnvIn, EnvOut, Result) :-
     eval_bool_env(B, EnvIn, EnvOut, TempResult),
     negate(TempResult, Result).

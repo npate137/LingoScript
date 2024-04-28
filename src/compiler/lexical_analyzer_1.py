@@ -5,9 +5,9 @@ from tkinter import filedialog
 
 keywords = ["main", "const", "var", "int", "bool", "str", "if", "else",
             "for", "while", "print", "true", "false", "not", "and", "or", "elseif"]
-operators = ["+", "-", "*", "/", "=", ">", "<", "!", "?", ":"]
+operators = ["+", "-", "*", "/", "=", ">", "<", "!", "?", ":", "&"]
 arithmetic_assignment = ["+=", "-=", "/=", "*=", "=="]
-separators = ["(", ")", "{", "}", ","]
+separators = ["(", ")", "{", "}", ",", "|"]
 
 
 def lexical_analyzer(filename):

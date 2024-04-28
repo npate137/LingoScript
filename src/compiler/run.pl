@@ -1,7 +1,9 @@
 :- table main_block/2.
 
 ls(Lexername) :-
-    process_create(path('python'), [Lexername], [stdout(pipe(In))]),
+    PossiblePythonCmds = ['python', 'python3', 'py'],
+    member(PythonCmd, PossiblePythonCmds),
+    process_create(path(PythonCmd), [Lexername], [stdout(pipe(In))]),
     read_string(In, _, X),
     write(X),
     term_to_atom(Y, X),
@@ -933,16 +935,22 @@ cmd_ternary_eval(divide_(Iden, /, =, Expr, Cmd), EnvIn, EnvOut) :-
     update_env(Iden, Result, EnvTemp, EnvTemp2),
     cmd_ternary_eval(Cmd, EnvTemp2, EnvOut).
 
-boolCondition(bool_true(true)) --> [true].
-boolCondition(bool_false(false)) --> [false].
-boolCondition(bool_equals(E, == , E1)) --> simple_expr(E), ['=', '='], simple_expr(E1).
-boolCondition(bool_greater(E, > , E1)) --> simple_expr(E), ['>'], simple_expr(E1).
-boolCondition(bool_less(E, < , E1)) --> simple_expr(E), ['<'], simple_expr(E1).
-boolCondition(bool_greater_equal(E, >= , E1)) --> simple_expr(E), ['>', '='], simple_expr(E1).
-boolCondition(bool_less_equal(E, <= , E1)) --> simple_expr(E), ['<', '='], simple_expr(E1).
-boolCondition(bool_negation(not, B)) --> ['not'], boolCondition(B).
-boolCondition(bool_negation(!, B)) --> ['!'], boolCondition(B).
-boolCondition(bool_not_equal(E, '!=', E1)) --> simple_expr(E), ['!', '='], simple_expr(E1).
+boolCondition(bool_ands(B, '&', B1)) --> boolConditionBase(B), ['&'], boolCondition(B1).
+boolCondition(bool_ors(B, '|', B1)) --> boolConditionBase(B), ['|'], boolCondition(B1).
+boolCondition(bool_and(B, and, B1)) --> boolConditionBase(B), ['and'], boolCondition(B1).
+boolCondition(bool_or(B, or, B1)) --> boolConditionBase(B), ['or'], boolCondition(B1).
+boolCondition(B) --> boolConditionBase(B).
+
+boolConditionBase(bool_true(true)) --> [true].
+boolConditionBase(bool_false(false)) --> [false].
+boolConditionBase(bool_equals(E, == , E1)) --> simple_expr(E), ['=', '='], simple_expr(E1).
+boolConditionBase(bool_greater(E, > , E1)) --> simple_expr(E), ['>'], simple_expr(E1).
+boolConditionBase(bool_less(E, < , E1)) --> simple_expr(E), ['<'], simple_expr(E1).
+boolConditionBase(bool_greater_equal(E, >= , E1)) --> simple_expr(E), ['>', '='], simple_expr(E1).
+boolConditionBase(bool_less_equal(E, <= , E1)) --> simple_expr(E), ['<', '='], simple_expr(E1).
+boolConditionBase(bool_negation(not, B)) --> ['not'], boolCondition(B).
+boolConditionBase(bool_negation(!, B)) --> ['!'], boolCondition(B).
+boolConditionBase(bool_not_equal(E, '!=', E1)) --> simple_expr(E), ['!', '='], simple_expr(E1).
 
 eval_bool_env(Bool, EnvIn, EnvOut, Result) :-
     bool_eval(Bool, EnvIn, EnvTemp, Result),
@@ -978,6 +986,22 @@ bool_eval(bool_less_equal(E, <= ,E1), EnvIn, EnvOut, Result) :-
     eval_expr_env(E1, EnvTemp, EnvOut, Val1),
     (Val =< Val1 -> Result = true
     ; Result = false).
+bool_eval(bool_ands(E, &, E1), EnvIn, EnvOut, Result) :-
+    eval_bool_env(E, EnvIn, EnvTemp, Val),
+    eval_bool_env(E1, EnvTemp, EnvOut, Val1),
+    (Val = true, Val1 = true -> Result = true; Result = false).
+bool_eval(bool_ors(E, '|', E1), EnvIn, EnvOut, Result) :-
+    eval_bool_env(E, EnvIn, EnvTemp, Val),
+    eval_bool_env(E1, EnvTemp, EnvOut, Val1),
+    (Val = false, Val1 = false -> Result = false; Result = true).
+bool_eval(bool_and(E, and, E1), EnvIn, EnvOut, Result) :-
+    eval_bool_env(E, EnvIn, EnvTemp, Val),
+    eval_bool_env(E1, EnvTemp, EnvOut, Val1),
+    (Val = true, Val1 = true -> Result = true; Result = false).
+bool_eval(bool_or(E, or, E1), EnvIn, EnvOut, Result) :-
+    eval_bool_env(E, EnvIn, EnvTemp, Val),
+    eval_bool_env(E1, EnvTemp, EnvOut, Val1),
+    (Val = false, Val1 = false -> Result = false; Result = true).
 bool_eval(bool_negation(not, B), EnvIn, EnvOut, Result) :-
     eval_bool_env(B, EnvIn, EnvOut, TempResult),
     negate(TempResult, Result).
@@ -1094,7 +1118,7 @@ string_value(string_(Variable), [Variable | Tail], Tail) :- string(Variable).
 
 variable(variable(Iden)) --> [Iden], {atom(Iden), not(number(Iden)), not(member(Iden, [int, float, bool, string, true, false, for,
     if, elif, else, while, range, and, or, not, in, range, <, >, <=, >=, ==,
-    '!=', ++, --, +, -, *, /]))}.
+    '!=', ++, --, +, -, *, /, '&', '|']))}.
 number(number(Num)) --> [Num], { number(Num) }.
 string_(string_(String)) --> [String], {string(String)}.
 

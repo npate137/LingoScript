@@ -5,10 +5,10 @@ while (a < 10) {
 a += 2;
 print("Incrementing by 2..");
 }
-if (a == 10) {
+if (a == 10 and a > 9) {
 print("a ended on 10");
 }
-if (a == 9) {
+if (a == 9 or a > 9) {
 print("a ended on 9");
 a ++;
 a --;

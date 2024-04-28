@@ -2,7 +2,13 @@
 :- table main_block/2.
 
 ls(Lexername) :-
-    process_create(path('python'), [Lexername], [stdout(pipe(In))]),
+    (   which('python3') -> PythonCmd = 'python3'
+    ;   which('python') -> PythonCmd = 'python'
+    ;   which('py') -> PythonCmd = 'py'
+    ;
+        throw(error('Python interpreter not found', _))
+    ),
+    process_create(path(PythonCmd), [Lexername], [stdout(pipe(In))]),
     read_string(In, _, X),
     write(X),
     term_to_atom(Y, X),
@@ -175,16 +181,22 @@ cmdForTernary(multiply_(Iden, *, =, Expr, Cmd)) --> variable(Iden), [*], [=], si
 cmdForTernary(divide_(Iden, /, =, Expr)) --> variable(Iden), [/], [=], simple_expr(Expr).
 cmdForTernary(divide_(Iden, /, =, Expr, Cmd)) --> variable(Iden), [/], [=], simple_expr(Expr), [;], cmdForTernary(Cmd).
 
-boolCondition(bool_true(true)) --> [true].
-boolCondition(bool_false(false)) --> [false].
-boolCondition(bool_equals(E, == , E1)) --> simple_expr(E), ['=', '='], simple_expr(E1).
-boolCondition(bool_greater(E, > , E1)) --> simple_expr(E), ['>'], simple_expr(E1).
-boolCondition(bool_less(E, < , E1)) --> simple_expr(E), ['<'], simple_expr(E1).
-boolCondition(bool_greater_equal(E, >= , E1)) --> simple_expr(E), ['>', '='], simple_expr(E1).
-boolCondition(bool_less_equal(E, <= , E1)) --> simple_expr(E), ['<', '='], simple_expr(E1).
-boolCondition(bool_negation(not, B)) --> ['not'], boolCondition(B).
-boolCondition(bool_negation(!, B)) --> ['!'], boolCondition(B).
-boolCondition(bool_not_equal(E, '!=', E1)) --> simple_expr(E), ['!', '='], simple_expr(E1).
+boolCondition(bool_ands(B, '&', B1)) --> boolConditionBase(B), ['&'], boolCondition(B1).
+boolCondition(bool_ors(B, '|', B1)) --> boolConditionBase(B), ['|'], boolCondition(B1).
+boolCondition(bool_and(B, and, B1)) --> boolConditionBase(B), ['and'], boolCondition(B1).
+boolCondition(bool_or(B, or, B1)) --> boolConditionBase(B), ['or'], boolCondition(B1).
+boolCondition(B) --> boolConditionBase(B).
+
+boolConditionBase(bool_true(true)) --> [true].
+boolConditionBase(bool_false(false)) --> [false].
+boolConditionBase(bool_equals(E, == , E1)) --> simple_expr(E), ['=', '='], simple_expr(E1).
+boolConditionBase(bool_greater(E, > , E1)) --> simple_expr(E), ['>'], simple_expr(E1).
+boolConditionBase(bool_less(E, < , E1)) --> simple_expr(E), ['<'], simple_expr(E1).
+boolConditionBase(bool_greater_equal(E, >= , E1)) --> simple_expr(E), ['>', '='], simple_expr(E1).
+boolConditionBase(bool_less_equal(E, <= , E1)) --> simple_expr(E), ['<', '='], simple_expr(E1).
+boolConditionBase(bool_negation(not, B)) --> ['not'], boolCondition(B).
+boolConditionBase(bool_negation(!, B)) --> ['!'], boolCondition(B).
+boolConditionBase(bool_not_equal(E, '!=', E1)) --> simple_expr(E), ['!', '='], simple_expr(E1).
 
 simple_expr(Str) --> string_(Str).
 simple_expr(E0) --> e1(E1), e0(E1, E0).
@@ -211,7 +223,7 @@ string_value(string_(Variable), [Variable | Tail], Tail) :- string(Variable).
 
 variable(variable(Iden)) --> [Iden], {atom(Iden), not(number(Iden)), not(member(Iden, [int, float, bool, string, true, false, for,
     if, elif, else, while, range, and, or, not, in, range, <, >, <=, >=, ==,
-    '!=', ++, --, +, -, *, /]))}.
+    '!=', ++, --, +, -, *, /, '&', '|']))}.
 number(number(Num)) --> [Num], { number(Num) }.
 string_(string_(String)) --> [String], {string(String)}.
 
