@@ -1,3 +1,8 @@
+% Author: Neil
+% version: 1.0
+% purpose: SER 502 - Spring 2024 - Team 22 - LingoScript Programming Language
+% Date: 03/31/2024
+
 :- use_module(token_reader).
 :- use_module(parser).
 :- use_module(evaluator).

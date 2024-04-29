@@ -1,3 +1,8 @@
+% Author: Devanshu Desai
+% version: 1.0
+% purpose: SER 502 - Spring 2024 - Team 22 - LingoScript Programming Language
+% Date: 03/31/2024
+
 :- table main_block/2.
 
 ls(Lexername) :-
