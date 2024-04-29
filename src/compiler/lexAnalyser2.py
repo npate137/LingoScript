@@ -1,18 +1,25 @@
+# Author: Neil
+# version: 1.0
+# purpose: SER 502 - Spring 2024 - Team 22 - LingoScript Programming Language
+# Date: 03/31/2024
+
+
 from tokenize import tokenize
 from io import BytesIO
 import tkinter as tk
 from tkinter import filedialog
+import os
 
-keywords = ["main", "const", "var", "int", "bool", "str", "if", "else",
-            "for", "while", "print", "true", "false", "not", "and", "or", "elseif"]
-operators = ["+", "-", "*", "/", "=", ">", "<", "!", "?", ":", "&"]
+keywords = ["main", "const", "var", "int", "bool",
+            "str", "if", "else", "for", "while", "print", "true", "false", "not", "and", "or", "elseif"]
+operators = ["+", "-", "*", "/", "=", ">", "<", "!", "?", ":"]
 arithmetic_assignment = ["+=", "-=", "/=", "*=", "=="]
-separators = ["(", ")", "{", "}", ",", "|"]
+separators = ["(", ")", "{", "}", ","]
 
 
 def lexical_analyzer(filename):
     assert filename[-2:] == "ls", "Please open a file with .ls extension"
-    tokens_list = "["
+    tokens_list = ""
     file_content = open(filename, "r").read()
     line = BytesIO(file_content.encode("utf-8")).readline
     tokenized_line = tokenize(line)
@@ -58,8 +65,14 @@ def lexical_analyzer(filename):
                         tokens_list += value[1]
                         tokens_list += ", "
     tokens_list = tokens_list[:-2]
-    tokens_list += "]"
-    print(tokens_list)
+    tokens_list = tokens_list.split(", ")
+    tokens_file = filename[:-2] + "lst"
+    with open(tokens_file, "w") as file:
+        for token in tokens_list:
+            token = token.replace("'", "")
+            file.write("{}\n".format(token))
+        print("Writing all Tokens in " + tokens_file)
+    os.system("swipl -g \"main('" + tokens_file + "')\" ../runtime/main.pl")
 
 
 if __name__ == "__main__":
