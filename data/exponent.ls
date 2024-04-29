@@ -6,8 +6,8 @@ main {
         result = result * base;
         exponent ++;
     }
-    print("The value of ");
+    print("The value of");
     print(base);
-    print(" raised to the power of 4 is ");
+    print("raised to the power of 4 is");
     print(result);
 }

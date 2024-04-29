@@ -1,13 +1,13 @@
 main {
-    var int counter1 = 0;
-    var int counter2 = 20;
-    while( counter1 < counter2 ) {
-        counter1 ++;
-        counter2 --;
-        print("counter1 = ");
-        print(counter1);
-        print("counter2 = ");
-        print(counter2);
+    var int a = 0;
+    var int b = 20;
+    while( a < b ) {
+        a ++;
+        b --;
+        print("a =");
+        print(a);
+        print("b =");
+        print(b);
         print("\n");
     }
     print("We have reached the End.");

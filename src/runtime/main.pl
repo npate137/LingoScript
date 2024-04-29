@@ -1,7 +1,7 @@
-% Author: Neil
+% Author: Neel
 % version: 1.0
-% purpose: SER 502 - Spring 2024 - Team 22 - LingoScript Programming Language
-% Date: 03/31/2024
+% purpose: The main program structured to read, parse, and evaluate LingoScript code file.
+% Date: 04/23/2024
 
 :- use_module(token_reader).
 :- use_module(parser).

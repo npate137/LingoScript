@@ -4,8 +4,8 @@ main {
     for i in range(2, 9, 1) {
         fact = fact * i;
     }
-    print("The Factorial of ");
+    print("The Factorial of");
     print(num);
-    print(" is ");
+    print("is");
     print(fact);
 }

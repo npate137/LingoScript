@@ -1,7 +1,7 @@
-# Author: Neil
+# Author: Neel
 # version: 1.0
-# purpose: SER 502 - Spring 2024 - Team 22 - LingoScript Programming Language
-# Date: 03/31/2024
+# purpose: Lexical analyzer for the LingoScript programming language. It tokenizes input files with a .ls extension, extracting keywords, operators, separators, and values, then prints the resulting token list.
+# Date: 04/20/2024
 
 from tokenize import tokenize
 from io import BytesIO

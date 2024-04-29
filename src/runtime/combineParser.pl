@@ -1,13 +1,13 @@
 % Author: Devanshu Desai
 % version: 1.0
-% purpose: SER 502 - Spring 2024 - Team 22 - LingoScript Programming Language
-% Date: 03/31/2024
+% purpose: purpose: This code defines a parser and evaluator for the programming language LingoScript.
+% Date: 04/24/2024
 
 :- table main_block/2.
 
 ls(Lexername) :-
-    (   which('python3') -> PythonCmd = 'python3'
-    ;   which('python') -> PythonCmd = 'python'
+    (   which('python') -> PythonCmd = 'python'
+    ;   which('python3') -> PythonCmd = 'python3'
     ;   which('py') -> PythonCmd = 'py'
     ;
         throw(error('Python interpreter not found', _))

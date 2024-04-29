@@ -1,3 +1,5 @@
+<img src="https://www.creativefabrica.com/wp-content/uploads/2021/09/03/LS-Letter-Logo-Design-Graphics-16736340-1-580x387.jpg"/>
+
 # LingoScript Programming Language
 # SER502-LingoScript-Team22
 ### LingoScript is a custom programming language designed for handling basic arithmetic operations, conditional statements, ternary expressions, and loops.
@@ -50,5 +52,5 @@ $ swipl
 ```
 - Execute the sample program by parsing tokens
 ```
-?- pixel('/Users/user/Desktop/SER502-LingoScript-Team22/src/compiler/lexical_analyer_1.py').
+?- pixel('/Users/user/Desktop/SER502-LingoScript-Team22/src/compiler/lex_analyer.py').
 ```

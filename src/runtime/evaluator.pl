@@ -1,7 +1,7 @@
 % Author: Nimit Patel
 % version: 1.0
-% purpose: SER 502 - Spring 2024 - Team 22 - LingoScript Programming Language
-% Date: 03/31/2024
+% purpose: purpose: This code defines an evaluator for the programming language LingoScript.
+% Date: 04/25/2024
 
 :- module(program_eval, [program_eval/3]).
 program_eval(Prog, EnvIn, EnvOut) :-

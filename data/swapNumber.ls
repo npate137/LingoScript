@@ -1,19 +1,19 @@
 main {
-    var bool flag = false;
-    var int num1 = 5;
-    var int num2 = 7;
+    var bool flg = false;
+    var int x = 5;
+    var int y = 7;
     print("Before Swapping...");
-    print("num1 = ");
-    print(num1);
-    print("num2 = ");
-    print(num2);
-    var int temp = num1;
-    num1 = num2;
-    num2 = temp;
-    flag = true;
+    print("x = ");
+    print(x);
+    print("y = ");
+    print(y);
+    var int temp = x;
+    x = y;
+    y = temp;
+    flg = true;
     print("After Swapping...");
-    print("num1 = ");
-    print(num1);
-    print("num2 = ");
-    print(num2);
+    print("x = ");
+    print(x);
+    print("y = ");
+    print(y);
 }

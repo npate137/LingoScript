@@ -1,10 +1,10 @@
 main {
-    var int num1 = 22;
-    var str greeting = "Hello from Team-22";
-    var bool compare = 2 > (3 + 4);
-    const int equation = 1 + 2 * 3 - 6 / 2;
-    compare = true;
-    compare = false;
-    greeting = "Hello there!!!";
-    const str newStr = "Hello there!!!";
+    var int x = 22;
+    var str y = "Hello from Team-22";
+    var bool cmp = 2 > (3 + 4);
+    const int eq = 1 + 2 * 3 - 6 / 2;
+    cmp = true;
+    cmp = false;
+    y = "Hello there!!!";
+    const str wrd = "Hello there!!!";
 }

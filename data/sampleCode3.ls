@@ -8,12 +8,12 @@ main {
     if (num == 12 and num > 11) {
         print("num ended on 12");
     }
-    if (num == 11 or num > 11) {
-        print("num ended on 11");
+    if (num == 14 or num > 11) {
+        print("num ended on 14");
         num ++;
         num --;
     }
     var int counter = 2;
-    print("num = ");
+    print("num =");
     print(num);
 }

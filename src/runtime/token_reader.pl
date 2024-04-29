@@ -1,7 +1,7 @@
 % Author: Nimit Patel
 % version: 1.0
-% purpose: SER 502 - Spring 2024 - Team 22 - LingoScript Programming Language
-% Date: 03/31/2024
+% purpose: Reads a file line by line and converts its contents into a suitable format, handling both text and numeric data.
+% Date: 04/23/2024
 
 :- module(custom_read_file, [custom_read_file/2]).
 :- set_prolog_flag(double_quotes, string).

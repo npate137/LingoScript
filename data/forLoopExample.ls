@@ -1,18 +1,18 @@
 main {
-    var int counter1 = 0;
-    var int counter2;
-    var int counter3 = 0;
-    var int counter4 = 0;
-    for (counter1 = 2; counter1 < 6; counter1 = counter1 + 1){
-        counter2 = counter1;
+    var int i = 0;
+    var int j;
+    var int z = 0;
+    var int y = 0;
+    for (i = 1; i < 6; i = i + 1){
+        j = i;
     }
-    for (var int counter5 = 2; counter5 < 11; counter5 = counter5 + 2){
-        counter3 = counter5;
+    for (var int x = 1; x < 11; x = x + 2){
+        z = x;
     }
-    for counter4 in range(11){
-        counter3 = counter4;
+    for y in range(10){
+        z = y;
     }
-    for counter3 in range(7,16,2){
-        counter1 = counter3;
+    for z in range(7,16,2){
+        i=z;
     }
 }
